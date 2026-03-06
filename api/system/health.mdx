@@ -1,0 +1,110 @@
+---
+title: 'Health Check'
+api: 'GET /api/health'
+description: 'Check the health status of the MediGuide API and database connection'
+---
+
+## Overview
+
+The health check endpoint provides a simple way to verify that the MediGuide server is running and can connect to the database. This endpoint is useful for monitoring, load balancer health checks, and deployment verification.
+
+## Endpoint
+
+```http
+GET /api/health
+```
+
+## Authentication
+
+No authentication required. This is a public endpoint.
+
+## Response
+
+<ResponseField name="status" type="string">
+  Server status indicator. Returns `"ok"` when the server and database are operational.
+</ResponseField>
+
+<ResponseField name="time" type="object">
+  Database timestamp object containing the current database server time.
+</ResponseField>
+
+## Examples
+
+<CodeGroup>
+
+```bash cURL
+curl http://localhost:3001/api/health
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:3001/api/health');
+const data = await response.json();
+console.log(data);
+```
+
+```python Python
+import requests
+
+response = requests.get('http://localhost:3001/api/health')
+data = response.json()
+print(data)
+```
+
+</CodeGroup>
+
+## Success Response
+
+```json
+{
+  "status": "ok",
+  "time": {
+    "now": "2024-03-06T16:30:45.123Z"
+  }
+}
+```
+
+## Error Response
+
+```json
+{
+  "status": "error",
+  "error": "connection to database failed"
+}
+```
+
+## Implementation
+
+From `server.js:23-30`:
+
+```javascript server.js
+app.get('/api/health', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT NOW()');
+    return res.json({ status: 'ok', time: rows[0] });
+  } catch (error) {
+    return res.status(500).json({ status: 'error', error: error.message });
+  }
+});
+```
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Deployment Verification" icon="rocket">
+    Check that the server started successfully after deployment
+  </Card>
+  <Card title="Load Balancer Health Checks" icon="heart-pulse">
+    Configure your load balancer to poll this endpoint
+  </Card>
+  <Card title="Monitoring" icon="monitor-waveform">
+    Set up automated monitoring to alert on downtime
+  </Card>
+  <Card title="Database Connection" icon="database">
+    Verify PostgreSQL connectivity without authentication
+  </Card>
+</CardGroup>
+
+## Related Endpoints
+
+- [User Signup](/api/auth/signup) - Create a new user account
+- [Medical Records](/api/medical/save-record) - Save health data

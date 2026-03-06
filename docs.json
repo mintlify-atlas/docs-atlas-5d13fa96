@@ -7,11 +7,7 @@
     "light": "#7c6c34",
     "dark": "#19160b"
   },
-  "favicon": "/favicon.ico",
-  "logo": {
-    "light": "/logo-light.png",
-    "dark": "/logo-dark.svg"
-  },
+  "favicon": "/favicon.svg",
   "navbar": {
     "primary": {
       "type": "github",
@@ -77,6 +73,12 @@
             "pages": [
               "api/medical/save-record",
               "api/medical/get-latest"
+            ]
+          },
+          {
+            "group": "System",
+            "pages": [
+              "api/system/health"
             ]
           }
         ]
