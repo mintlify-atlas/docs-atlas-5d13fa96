@@ -1,0 +1,88 @@
+{
+  "projectType": "saas",
+  "projectName": "MediGuide",
+  "projectDescription": "A comprehensive health tracking application for monitoring medical vitals and managing personal health data",
+  "theme": "almond",
+  "primaryColor": "#f1d262",
+  "lightColor": "#7c6c34",
+  "darkColor": "#19160b",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/authentication",
+              "features/medical-tracking",
+              "features/health-dashboard"
+            ]
+          },
+          {
+            "group": "Mobile App",
+            "pages": [
+              "mobile/android-setup",
+              "mobile/capacitor-config"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/environment",
+              "deployment/database",
+              "deployment/production"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Authentication",
+            "pages": [
+              "api/auth/signup",
+              "api/auth/login",
+              "api/auth/password-recovery"
+            ]
+          },
+          {
+            "group": "Medical Records",
+            "pages": [
+              "api/medical/save-record",
+              "api/medical/get-latest"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Secure user authentication with JWT tokens",
+    "Comprehensive medical vital tracking (glucose, blood pressure, heart rate, oxygen levels)",
+    "Password recovery with time-limited reset codes",
+    "PostgreSQL database with automatic schema initialization",
+    "Cross-platform mobile app support via Capacitor",
+    "RESTful API with authentication middleware",
+    "Health dashboard with data visualization"
+  ],
+  "publicApiSurface": [
+    "POST /api/users/signup",
+    "POST /api/users/login",
+    "POST /api/users/forgot-password",
+    "POST /api/users/verify-reset-code",
+    "POST /api/users/reset-password",
+    "POST /api/medical-info/",
+    "GET /api/medical-info/latest",
+    "GET /api/health"
+  ]
+}
