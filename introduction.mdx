@@ -1,0 +1,124 @@
+---
+title: Introduction
+description: Welcome to MediGuide - Your personal health tracking companion
+---
+
+## What is MediGuide?
+
+MediGuide is a comprehensive health tracking SaaS application that enables individuals to monitor, record, and analyze their medical vitals in real-time. Built with modern web technologies, MediGuide provides a seamless experience across web and mobile platforms, helping users take control of their health data.
+
+<Note>
+  MediGuide stores your health data securely with JWT authentication and encrypted password storage using bcrypt.
+</Note>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Secure Authentication" icon="lock">
+    User registration, login, and password recovery with JWT token-based authentication and bcrypt password hashing.
+  </Card>
+  
+  <Card title="Medical Vitals Tracking" icon="heart-pulse">
+    Track comprehensive health metrics including glucose levels, blood pressure, oxygen saturation, heart rate, temperature, and more.
+  </Card>
+  
+  <Card title="Health Dashboard" icon="chart-line">
+    Visualize your health trends and access your latest medical records in an intuitive interface.
+  </Card>
+  
+  <Card title="Cross-Platform" icon="mobile">
+    Built with Capacitor for seamless deployment to web, iOS, and Android platforms.
+  </Card>
+</CardGroup>
+
+## Who is MediGuide for?
+
+MediGuide is designed for:
+
+- **Individuals** monitoring chronic conditions like diabetes or hypertension
+- **Health-conscious users** tracking their daily vitals and wellness metrics
+- **Patients** who need to maintain detailed health records for medical consultations
+- **Caregivers** managing health data for family members
+
+## Architecture Overview
+
+MediGuide is built using a modern, full-stack architecture:
+
+### Frontend
+
+- **React 19.2** - Modern UI library with hooks and context
+- **Vite 7.3** - Lightning-fast build tool and development server
+- **Capacitor 8.1** - Cross-platform mobile deployment
+
+### Backend
+
+- **Express 5.2** - Fast, minimalist Node.js web framework
+- **PostgreSQL** - Reliable relational database for health records
+- **JWT** - Secure token-based authentication
+- **Bcrypt** - Industry-standard password hashing
+- **Zod** - TypeScript-first schema validation
+
+### Database Schema
+
+MediGuide uses two primary tables:
+
+**Users Table**
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(255) UNIQUE NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  reset_code VARCHAR(10),
+  reset_code_expiry TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Medical Records Table**
+```sql
+CREATE TABLE medical_records (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  glucose NUMERIC,
+  oxygen_blood NUMERIC,
+  blood_pressure_systolic NUMERIC,
+  blood_pressure_diastolic NUMERIC,
+  temperature NUMERIC,
+  age INTEGER,
+  height NUMERIC,
+  weight NUMERIC,
+  respiratory_rate NUMERIC,
+  blood_type VARCHAR(2),
+  heart_rate NUMERIC,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+<Warning>
+  All medical records are linked to user accounts with CASCADE deletion to maintain data integrity.
+</Warning>
+
+## API Architecture
+
+MediGuide exposes RESTful API endpoints:
+
+- `/api/users/*` - User authentication and account management
+- `/api/medical-info/*` - Medical record creation and retrieval
+- `/api/health` - Server health check endpoint
+
+All medical endpoints require JWT authentication via the `Authorization: Bearer <token>` header.
+
+## Getting Started
+
+Ready to set up MediGuide? Continue to the [Installation](/installation) guide to get your development environment configured, or jump straight to the [Quickstart](/quickstart) to see MediGuide in action.
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Set up your development environment
+  </Card>
+  
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get up and running in 5 minutes
+  </Card>
+</CardGroup>

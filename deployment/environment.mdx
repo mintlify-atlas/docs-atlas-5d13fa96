@@ -1,0 +1,302 @@
+---
+title: Environment Configuration
+description: Configure environment variables and secure your MediGuide deployment
+---
+
+## Overview
+
+MediGuide requires specific environment variables to run properly. This guide covers setting up your `.env` file and securing sensitive configuration data.
+
+## Required Environment Variables
+
+<Steps>
+  <Step title="Create .env file">
+    Create a `.env` file in the root directory of your project:
+
+    ```bash
+    touch .env
+    ```
+  </Step>
+
+  <Step title="Add database credentials">
+    Configure your PostgreSQL database connection:
+
+    ```bash .env
+    DB_USER=your_database_user
+    DB_HOST=localhost
+    DB_NAME=mediguide
+    DB_PASSWORD=your_secure_password
+    DB_PORT=5432
+    ```
+
+    <Note>
+      These credentials are used in `db.js:8-13` to create the PostgreSQL connection pool.
+    </Note>
+  </Step>
+
+  <Step title="Add JWT secret">
+    Set a strong secret key for JWT token signing:
+
+    ```bash .env
+    JWT_SECRET=your_very_long_random_secret_key_here
+    ```
+
+    <Warning>
+      The JWT_SECRET is critical for authentication security. Use a long, randomly generated string (at least 32 characters).
+    </Warning>
+  </Step>
+
+  <Step title="Configure server settings">
+    Set the server port and environment mode:
+
+    ```bash .env
+    PORT=3001
+    NODE_ENV=development
+    ```
+  </Step>
+</Steps>
+
+## Complete .env Template
+
+Here's a complete `.env` template with all required variables:
+
+```bash .env
+# Database Configuration
+DB_USER=postgres
+DB_HOST=localhost
+DB_NAME=mediguide
+DB_PASSWORD=your_secure_password
+DB_PORT=5432
+
+# JWT Authentication
+JWT_SECRET=your_very_long_random_secret_key_minimum_32_characters
+
+# Server Configuration
+PORT=3001
+NODE_ENV=development
+```
+
+## How Variables Are Used
+
+### Database Connection
+
+The database credentials are loaded in `db.js` to create a PostgreSQL connection pool:
+
+```javascript db.js
+import pg from 'pg';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const { Pool } = pg;
+
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+});
+
+export default pool;
+```
+
+### JWT Authentication
+
+The `JWT_SECRET` is used to sign and verify authentication tokens in the authentication middleware:
+
+```javascript src/middleware/auth.js
+import jwt from 'jsonwebtoken';
+
+const auth = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'No autorizado: token requerido' });
+  }
+
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Token inválido o expirado' });
+  }
+};
+```
+
+Tokens are generated during login and signup with a 7-day expiration:
+
+```javascript src/routes/users.js
+const token = jwt.sign(
+  { id: user.id, username: user.username }, 
+  process.env.JWT_SECRET, 
+  { expiresIn: '7d' }
+);
+```
+
+### Server Port
+
+The `PORT` variable determines which port the Express server listens on:
+
+```javascript server.js
+const PORT = process.env.PORT || 3001;
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✓ Servidor corriendo en puerto ${PORT}`);
+});
+```
+
+### Environment Mode
+
+The `NODE_ENV` variable controls environment-specific behavior. For example, in development mode, password reset codes are logged to the console:
+
+```javascript src/routes/users.js
+if (process.env.NODE_ENV !== 'production') {
+  console.log(`[dev] Código de recuperación para ${email}: ${resetCode}`);
+}
+```
+
+## Security Best Practices
+
+<Warning>
+  Never commit your `.env` file to version control. Add it to `.gitignore` immediately.
+</Warning>
+
+### Gitignore Configuration
+
+Add the following to your `.gitignore`:
+
+```bash .gitignore
+# Environment variables
+.env
+.env.local
+.env.*.local
+```
+
+### Generating a Secure JWT Secret
+
+Use one of these methods to generate a cryptographically secure JWT secret:
+
+<CodeGroup>
+```bash Node.js
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+
+```bash OpenSSL
+openssl rand -hex 64
+```
+
+```bash Python
+python -c "import secrets; print(secrets.token_hex(64))"
+```
+</CodeGroup>
+
+### Environment-Specific Configuration
+
+Maintain separate configuration files for different environments:
+
+- `.env.development` - Local development
+- `.env.staging` - Staging environment
+- `.env.production` - Production environment
+
+<Note>
+  Use tools like `dotenv-vault` or secret management services (AWS Secrets Manager, HashiCorp Vault) for production environments.
+</Note>
+
+## Database Password Security
+
+### Best Practices
+
+- Use passwords with at least 16 characters
+- Include uppercase, lowercase, numbers, and special characters
+- Never use default passwords like `postgres` or `admin`
+- Rotate passwords regularly (every 90 days)
+- Use different passwords for development and production
+
+### Connection String Alternative
+
+You can also use a database connection string instead of individual variables:
+
+```bash .env
+DATABASE_URL=postgresql://user:password@localhost:5432/mediguide
+```
+
+Then modify `db.js` to use the connection string:
+
+```javascript db.js
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+```
+
+## Verifying Configuration
+
+After setting up your environment variables, verify the configuration works:
+
+<Steps>
+  <Step title="Load environment variables">
+    ```bash
+    npm install dotenv
+    ```
+  </Step>
+
+  <Step title="Test database connection">
+    Start the server and check the health endpoint:
+
+    ```bash
+    npm run dev
+    curl http://localhost:3001/api/health
+    ```
+
+    Expected response:
+    ```json
+    {
+      "status": "ok",
+      "time": { "now": "2024-03-15T10:30:00.000Z" }
+    }
+    ```
+  </Step>
+
+  <Step title="Verify JWT authentication">
+    Test user registration to ensure JWT_SECRET is working:
+
+    ```bash
+    curl -X POST http://localhost:3001/api/users/signup \
+      -H "Content-Type: application/json" \
+      -d '{"username":"testuser","email":"test@example.com","password":"password123"}'
+    ```
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### Common Issues
+
+**Error: "Cannot connect to database"**
+
+Check that:
+- PostgreSQL is running
+- Database credentials are correct
+- Database exists (create it with `createdb mediguide`)
+- Firewall allows connections to DB_PORT
+
+**Error: "JWT_SECRET is not defined"**
+
+Ensure:
+- `.env` file exists in the root directory
+- `dotenv.config()` is called before using environment variables
+- JWT_SECRET is set in `.env`
+
+**Error: "Port already in use"**
+
+Change the PORT in `.env` or kill the process using the port:
+
+```bash
+lsof -ti:3001 | xargs kill -9
+```
+
+## Next Steps
+
+<Card title="Database Setup" icon="database" href="/deployment/database">
+  Learn how to set up and initialize the PostgreSQL database
+</Card>

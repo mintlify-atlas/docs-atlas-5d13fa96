@@ -1,0 +1,753 @@
+---
+title: Production Deployment
+description: Deploy MediGuide to production with security, performance, and reliability best practices
+---
+
+## Overview
+
+This guide covers deploying MediGuide to a production environment with proper security configurations, process management, and monitoring.
+
+## Pre-Deployment Checklist
+
+<Steps>
+  <Step title="Environment variables configured">
+    Ensure all production environment variables are set with secure values:
+    - `NODE_ENV=production`
+    - Strong `JWT_SECRET` (64+ characters)
+    - Production database credentials
+    - Proper `PORT` configuration
+  </Step>
+
+  <Step title="Database ready">
+    - PostgreSQL instance running
+    - Database created and initialized
+    - Regular backup schedule configured
+    - Connection pooling optimized
+  </Step>
+
+  <Step title="Security hardened">
+    - SSL/TLS certificates obtained
+    - CORS properly configured
+    - Rate limiting implemented
+    - Input validation enabled
+  </Step>
+
+  <Step title="Dependencies updated">
+    ```bash
+    npm audit fix
+    npm outdated
+    ```
+  </Step>
+</Steps>
+
+## Building for Production
+
+MediGuide uses Vite for the frontend build process:
+
+```bash
+npm run build
+```
+
+This command (defined in `package.json:8`) runs `vite build` which:
+
+- Minifies JavaScript and CSS
+- Optimizes assets
+- Creates production-ready bundles in `dist/`
+- Generates source maps for debugging
+
+### Build Configuration
+
+From `package.json`:
+
+```json package.json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  }
+}
+```
+
+### Preview Production Build
+
+Test the production build locally:
+
+```bash
+npm run preview
+```
+
+## Server Deployment
+
+### Starting the Server
+
+The MediGuide backend server is started from `server.js`:
+
+```javascript server.js
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import pool from './db.js';
+import initializeDatabase from './initDb.js';
+import usersRouter from './src/routes/users.js';
+import medicalRouter from './src/routes/medical.js';
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+app.use(cors());
+app.use(express.json());
+
+await initializeDatabase();
+
+app.use('/api/users', usersRouter);
+app.use('/api/medical-info', medicalRouter);
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✓ Servidor corriendo en puerto ${PORT}`);
+});
+```
+
+<Note>
+  The server binds to `0.0.0.0` (server.js:32) to accept connections from any network interface, which is necessary for production deployments.
+</Note>
+
+### Production Start Command
+
+Add a production start script to `package.json`:
+
+```json package.json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "NODE_ENV=production node server.js"
+  }
+}
+```
+
+Start the server:
+
+```bash
+npm start
+```
+
+## Process Management with PM2
+
+<Warning>
+  Do not run the Node.js server directly in production. Use a process manager like PM2 to ensure automatic restarts and logging.
+</Warning>
+
+### Installing PM2
+
+```bash
+npm install -g pm2
+```
+
+### PM2 Configuration
+
+Create an `ecosystem.config.js` file:
+
+```javascript ecosystem.config.js
+module.exports = {
+  apps: [{
+    name: 'mediguide-api',
+    script: './server.js',
+    instances: 'max',
+    exec_mode: 'cluster',
+    env: {
+      NODE_ENV: 'production',
+      PORT: 3001
+    },
+    error_file: './logs/err.log',
+    out_file: './logs/out.log',
+    log_date_format: 'YYYY-MM-DD HH:mm:ss',
+    max_memory_restart: '1G',
+    autorestart: true,
+    watch: false,
+    max_restarts: 10,
+    min_uptime: '10s'
+  }]
+};
+```
+
+### PM2 Commands
+
+<CodeGroup>
+```bash Start
+pm2 start ecosystem.config.js
+```
+
+```bash Stop
+pm2 stop mediguide-api
+```
+
+```bash Restart
+pm2 restart mediguide-api
+```
+
+```bash View Logs
+pm2 logs mediguide-api
+```
+
+```bash Monitor
+pm2 monit
+```
+
+```bash Startup Script
+# Generate startup script to auto-start on boot
+pm2 startup
+pm2 save
+```
+</CodeGroup>
+
+## CORS Configuration
+
+Currently, MediGuide uses a permissive CORS configuration (server.js:15):
+
+```javascript server.js
+app.use(cors());
+```
+
+<Warning>
+  In production, restrict CORS to specific origins to prevent unauthorized access.
+</Warning>
+
+### Production CORS Setup
+
+Update `server.js` to restrict origins:
+
+```javascript server.js
+import cors from 'cors';
+
+const corsOptions = {
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || [
+    'https://mediguide.com',
+    'https://www.mediguide.com',
+    'https://app.mediguide.com'
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
+```
+
+Add to `.env`:
+
+```bash .env
+ALLOWED_ORIGINS=https://mediguide.com,https://app.mediguide.com
+```
+
+## SSL/HTTPS Setup
+
+### Option 1: Nginx Reverse Proxy (Recommended)
+
+Use Nginx as a reverse proxy to handle SSL termination:
+
+```nginx /etc/nginx/sites-available/mediguide
+server {
+    listen 80;
+    server_name api.mediguide.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name api.mediguide.com;
+
+    ssl_certificate /etc/letsencrypt/live/api.mediguide.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.mediguide.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Health check endpoint
+    location /api/health {
+        proxy_pass http://localhost:3001/api/health;
+        access_log off;
+    }
+}
+```
+
+Enable the site:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/mediguide /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Option 2: Let's Encrypt with Certbot
+
+Obtain free SSL certificates:
+
+```bash
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d api.mediguide.com
+```
+
+### Option 3: Direct HTTPS in Node.js
+
+For direct HTTPS in the Node.js server:
+
+```javascript server.js
+import https from 'https';
+import fs from 'fs';
+
+const httpsOptions = {
+  key: fs.readFileSync('/path/to/private-key.pem'),
+  cert: fs.readFileSync('/path/to/certificate.pem')
+};
+
+const server = https.createServer(httpsOptions, app);
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`✓ HTTPS server running on port ${PORT}`);
+});
+```
+
+## Security Enhancements
+
+### Helmet.js for Security Headers
+
+Add security headers to protect against common vulnerabilities:
+
+```bash
+npm install helmet
+```
+
+```javascript server.js
+import helmet from 'helmet';
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+```
+
+### Rate Limiting
+
+Protect against brute force attacks:
+
+```bash
+npm install express-rate-limit
+```
+
+```javascript server.js
+import rateLimit from 'express-rate-limit';
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.'
+});
+
+app.use('/api/', limiter);
+
+// Stricter limit for authentication endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true
+});
+
+app.use('/api/users/login', authLimiter);
+app.use('/api/users/signup', authLimiter);
+```
+
+### Request Validation
+
+MediGuide already uses `zod` for validation (package.json:24). Ensure all endpoints validate input:
+
+```javascript src/validators/medical.js
+import { z } from 'zod';
+
+export const medicalRecordSchema = z.object({
+  glucose: z.number().positive().optional(),
+  oxygen_blood: z.number().min(0).max(100).optional(),
+  blood_pressure_systolic: z.number().positive().optional(),
+  blood_pressure_diastolic: z.number().positive().optional(),
+  temperature: z.number().positive().optional(),
+  heart_rate: z.number().positive().optional(),
+});
+```
+
+## Database Production Configuration
+
+### Connection Pool Optimization
+
+Update `db.js` for production:
+
+```javascript db.js
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+  max: 20,                    // Maximum pool size
+  min: 5,                     // Minimum pool size
+  idleTimeoutMillis: 30000,   // Close idle clients after 30s
+  connectionTimeoutMillis: 2000,
+  ssl: process.env.NODE_ENV === 'production' ? {
+    rejectUnauthorized: false  // Set to true with proper CA cert
+  } : false
+});
+```
+
+### Database Backups
+
+Set up automated daily backups:
+
+```bash backup.sh
+#!/bin/bash
+BACKUP_DIR="/backups/mediguide"
+DATE=$(date +%Y%m%d_%H%M%S)
+FILE="$BACKUP_DIR/mediguide_$DATE.sql.gz"
+
+mkdir -p $BACKUP_DIR
+
+pg_dump -U $DB_USER -h $DB_HOST $DB_NAME | gzip > $FILE
+
+# Keep only last 7 days of backups
+find $BACKUP_DIR -name "mediguide_*.sql.gz" -mtime +7 -delete
+
+echo "Backup completed: $FILE"
+```
+
+Add to crontab:
+
+```bash
+0 2 * * * /path/to/backup.sh >> /var/log/mediguide-backup.log 2>&1
+```
+
+## Health Monitoring
+
+### Health Check Endpoint
+
+MediGuide includes a health check endpoint (server.js:23-30):
+
+```javascript server.js
+app.get('/api/health', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT NOW()');
+    return res.json({ status: 'ok', time: rows[0] });
+  } catch (error) {
+    return res.status(500).json({ status: 'error', error: error.message });
+  }
+});
+```
+
+Use this endpoint for:
+- Load balancer health checks
+- Uptime monitoring (Pingdom, UptimeRobot)
+- Kubernetes liveness/readiness probes
+
+### Logging
+
+Implement structured logging:
+
+```bash
+npm install winston
+```
+
+```javascript logger.js
+import winston from 'winston';
+
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'logs/combined.log' })
+  ]
+});
+
+if (process.env.NODE_ENV !== 'production') {
+  logger.add(new winston.transports.Console({
+    format: winston.format.simple()
+  }));
+}
+
+export default logger;
+```
+
+## Environment-Specific Behavior
+
+MediGuide already includes environment-aware code. For example, password reset codes are only logged in development:
+
+```javascript src/routes/users.js
+if (process.env.NODE_ENV !== 'production') {
+  console.log(`[dev] Código de recuperación para ${email}: ${resetCode}`);
+}
+```
+
+Ensure `NODE_ENV=production` is set to disable debug features.
+
+## Deployment Platforms
+
+### AWS EC2
+
+1. Launch an EC2 instance (Ubuntu 22.04 recommended)
+2. Install Node.js, PostgreSQL, and PM2
+3. Clone repository and install dependencies
+4. Configure environment variables
+5. Set up Nginx as reverse proxy
+6. Configure security groups (ports 80, 443, 5432)
+7. Start with PM2
+
+### DigitalOcean App Platform
+
+1. Connect GitHub repository
+2. Configure build command: `npm run build`
+3. Configure run command: `node server.js`
+4. Add PostgreSQL managed database
+5. Set environment variables in dashboard
+6. Deploy
+
+### Heroku
+
+```bash
+heroku create mediguide-api
+heroku addons:create heroku-postgresql:hobby-dev
+heroku config:set NODE_ENV=production
+heroku config:set JWT_SECRET=your_secret_here
+git push heroku main
+```
+
+### Docker Deployment
+
+Create a `Dockerfile`:
+
+```dockerfile Dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY . .
+RUN npm run build
+
+EXPOSE 3001
+
+CMD ["node", "server.js"]
+```
+
+Create `docker-compose.yml`:
+
+```yaml docker-compose.yml
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASSWORD=secure_password
+      - DB_NAME=mediguide
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=secure_password
+      - POSTGRES_DB=mediguide
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+```
+
+Deploy:
+
+```bash
+docker-compose up -d
+```
+
+## Post-Deployment Verification
+
+<Steps>
+  <Step title="Test API endpoints">
+    ```bash
+    curl https://api.mediguide.com/api/health
+    ```
+  </Step>
+
+  <Step title="Verify SSL certificate">
+    ```bash
+    curl -I https://api.mediguide.com
+    ```
+  </Step>
+
+  <Step title="Check database connection">
+    Monitor PM2 logs for successful database initialization:
+    ```bash
+    pm2 logs mediguide-api | grep "Database initialized"
+    ```
+  </Step>
+
+  <Step title="Test authentication flow">
+    Register a test user and verify JWT token generation:
+    ```bash
+    curl -X POST https://api.mediguide.com/api/users/signup \
+      -H "Content-Type: application/json" \
+      -d '{"username":"test","email":"test@example.com","password":"password123"}'
+    ```
+  </Step>
+</Steps>
+
+## Troubleshooting Production Issues
+
+### Server Not Starting
+
+**Check PM2 logs**:
+```bash
+pm2 logs mediguide-api --lines 100
+```
+
+**Common issues**:
+- Missing environment variables
+- Database connection failure
+- Port already in use
+- Permission issues
+
+### Database Connection Errors
+
+**Verify database is running**:
+```bash
+sudo systemctl status postgresql
+```
+
+**Test connection manually**:
+```bash
+psql -U $DB_USER -h $DB_HOST -d $DB_NAME
+```
+
+### High Memory Usage
+
+Monitor with PM2:
+```bash
+pm2 monit
+```
+
+Adjust `max_memory_restart` in `ecosystem.config.js` if needed.
+
+### SSL Certificate Issues
+
+**Test certificate validity**:
+```bash
+openssl s_client -connect api.mediguide.com:443 -servername api.mediguide.com
+```
+
+**Renew Let's Encrypt certificates**:
+```bash
+sudo certbot renew
+```
+
+## Performance Optimization
+
+### Enable Gzip Compression
+
+```bash
+npm install compression
+```
+
+```javascript server.js
+import compression from 'compression';
+
+app.use(compression());
+```
+
+### Database Indexing
+
+Add indexes for frequently queried columns:
+
+```sql
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_medical_records_user_id ON medical_records(user_id);
+CREATE INDEX idx_medical_records_created_at ON medical_records(created_at DESC);
+```
+
+### Caching
+
+Implement Redis caching for frequently accessed data:
+
+```bash
+npm install redis
+```
+
+```javascript cache.js
+import { createClient } from 'redis';
+
+const client = createClient({
+  url: process.env.REDIS_URL
+});
+
+await client.connect();
+
+export default client;
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Setup" icon="gear" href="/deployment/environment">
+    Configure environment variables and security settings
+  </Card>
+  
+  <Card title="Database Configuration" icon="database" href="/deployment/database">
+    Set up PostgreSQL and initialize schema
+  </Card>
+  
+  <Card title="Authentication API" icon="key" href="/api/auth/signup">
+    Explore authentication endpoints
+  </Card>
+  
+  <Card title="Medical Records API" icon="file-medical" href="/api/medical/save-record">
+    Explore medical data endpoints
+  </Card>
+</CardGroup>

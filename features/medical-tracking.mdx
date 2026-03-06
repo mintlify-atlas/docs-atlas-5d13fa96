@@ -1,0 +1,700 @@
+---
+title: Medical Data Tracking
+description: Track vital signs including glucose, blood pressure, heart rate, oxygen levels, and more
+icon: heart-pulse
+---
+
+MediGuide allows authenticated users to track comprehensive medical vitals that are validated, stored securely in PostgreSQL, and used to generate personalized health insights.
+
+## Overview
+
+The medical tracking system captures:
+- **Glucose levels** (mg/dL)
+- **Blood pressure** - systolic and diastolic (mmHg)
+- **Heart rate** (beats per minute)
+- **Oxygen saturation** (SpO₂ %)
+- **Body temperature** (°C)
+- **Respiratory rate** (breaths per minute)
+- **Weight** (kg)
+- **Height** (m)
+- **Age** (years)
+- **Blood type** (A+, A-, B+, B-, AB+, AB-, O+, O-)
+
+<Note>
+  All medical data routes require JWT authentication. Users can only submit and view their own data.
+</Note>
+
+## Data Input Flow
+
+<Steps>
+  <Step title="Authenticate">
+    User must be logged in with a valid JWT token.
+  </Step>
+  
+  <Step title="Fill Medical Form">
+    User enters their vital signs in the medical check form.
+  </Step>
+  
+  <Step title="Client Validation">
+    Frontend validates input ranges (e.g., glucose 0-999, oxygen 0-100%).
+  </Step>
+  
+  <Step title="Submit to API">
+    Data is sent to `/api/medical-info` with authentication header.
+  </Step>
+  
+  <Step title="Server Validation">
+    Backend validates using Zod schema to ensure data integrity.
+  </Step>
+  
+  <Step title="Authorization Check">
+    Server verifies user can only submit data for their own user ID.
+  </Step>
+  
+  <Step title="Save to Database">
+    Record is inserted into PostgreSQL with timestamp.
+  </Step>
+  
+  <Step title="Confirmation">
+    Success message returned with record ID.
+  </Step>
+</Steps>
+
+## Medical Data Form
+
+### Frontend Component
+
+From `src/components/medinfo.jsx:57-119`:
+
+```jsx
+function MedCheck({ userId, token }) {
+  const [formData, setFormData] = useState({
+    glucose: '', oxygenBlood: '', bloodPressureSystolic: '',
+    bloodPressureDiastolic: '', temperature: '', age: '',
+    height: '', weight: '', respiratoryRate: '', bloodType: '', heartRate: ''
+  });
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div>
+        <label htmlFor='Glucose'>Nivel de Glucosa (mg/dl)</label>
+        <input
+          type='number'
+          name='glucose'
+          value={formData.glucose}
+          onChange={handleChange}
+          min="0"
+          max="999"
+          required
+        />
+      </div>
+      
+      <div>
+        <label htmlFor='OxigenBlood'>Oxigenación de la sangre (%)</label>
+        <input
+          type='number'
+          name='oxygenBlood'
+          value={formData.oxygenBlood}
+          onChange={handleChange}
+          min="0"
+          max="100"
+          required
+        />
+      </div>
+      
+      <div>
+        <label htmlFor='BloodPresSystolic'>Presión Arterial Sistólica (mmHg)</label>
+        <input
+          type='number'
+          name='bloodPressureSystolic'
+          value={formData.bloodPressureSystolic}
+          onChange={handleChange}
+          min="0"
+          max="300"
+          required
+        />
+      </div>
+      
+      <div>
+        <label htmlFor='BloodPresDiastolic'>Presión Arterial Diastólica (mmHg)</label>
+        <input
+          type='number'
+          name='bloodPressureDiastolic'
+          value={formData.bloodPressureDiastolic}
+          onChange={handleChange}
+          min="0"
+          max="200"
+          required
+        />
+      </div>
+      
+      <div>
+        <label htmlFor='Temperature'>Temperatura Corporal (C°)</label>
+        <input
+          type='number'
+          name='temperature'
+          value={formData.temperature}
+          onChange={handleChange}
+          min="0"
+          max="50"
+          step="0.1"
+          required
+        />
+      </div>
+      
+      <div>
+        <label htmlFor='HeartRate'>Frecuencia Cardíaca (lat/min)</label>
+        <input
+          type='number'
+          name='heartRate'
+          value={formData.heartRate}
+          onChange={handleChange}
+          min="0"
+          max="300"
+          required
+        />
+      </div>
+      
+      <div>
+        <label htmlFor='BloodType'>Tipo de Sangre</label>
+        <select name='bloodType' value={formData.bloodType} onChange={handleChange} required>
+          <option value=""></option>
+          <option value="O+">O+</option>
+          <option value="O-">O-</option>
+          <option value="A+">A+</option>
+          <option value="A-">A-</option>
+          <option value="B+">B+</option>
+          <option value="B-">B-</option>
+          <option value="AB+">AB+</option>
+          <option value="AB-">AB-</option>
+        </select>
+      </div>
+      
+      {/* Additional fields: weight, height, age, respiratory rate */}
+      
+      <button type='submit' disabled={loading}>
+        {loading ? 'Guardando...' : 'Guardar Información'}
+      </button>
+    </form>
+  );
+}
+```
+
+### Input Validation Ranges
+
+<Accordion title="Glucose">
+  - **Range**: 0-999 mg/dL
+  - **Type**: number
+  - **Required**: Yes
+  - **Normal Range**: 70-100 mg/dL (fasting)
+</Accordion>
+
+<Accordion title="Oxygen Saturation (SpO₂)">
+  - **Range**: 0-100%
+  - **Type**: number
+  - **Required**: Yes
+  - **Normal Range**: 95-100%
+</Accordion>
+
+<Accordion title="Blood Pressure">
+  - **Systolic Range**: 0-300 mmHg
+  - **Diastolic Range**: 0-200 mmHg
+  - **Type**: number
+  - **Required**: Yes (both values)
+  - **Normal Range**: Less than 120/80 mmHg
+</Accordion>
+
+<Accordion title="Heart Rate">
+  - **Range**: 0-300 bpm
+  - **Type**: number
+  - **Required**: Yes
+  - **Normal Range**: 60-100 bpm (adults at rest)
+</Accordion>
+
+<Accordion title="Temperature">
+  - **Range**: 0-50°C
+  - **Type**: number (0.1 step)
+  - **Required**: Yes
+  - **Normal Range**: 36.5-37.5°C
+</Accordion>
+
+<Accordion title="Respiratory Rate">
+  - **Range**: 0-150 breaths/min
+  - **Type**: number
+  - **Required**: Yes
+  - **Normal Range**: 12-20 breaths/min
+</Accordion>
+
+<Accordion title="Weight">
+  - **Range**: 0-500 kg
+  - **Type**: number (0.1 step)
+  - **Required**: Yes
+</Accordion>
+
+<Accordion title="Height">
+  - **Range**: 0-3 meters
+  - **Type**: number (0.01 step)
+  - **Required**: Yes
+</Accordion>
+
+<Accordion title="Age">
+  - **Range**: 0-150 years
+  - **Type**: integer
+  - **Required**: Yes
+</Accordion>
+
+<Accordion title="Blood Type">
+  - **Options**: A+, A-, B+, B-, AB+, AB-, O+, O-
+  - **Type**: enum/select
+  - **Required**: Yes
+</Accordion>
+
+## API Integration
+
+### Submitting Medical Data
+
+<Tabs>
+  <Tab title="Request">
+    ```javascript
+    POST /api/medical-info
+    Content-Type: application/json
+    Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    {
+      "userId": 42,
+      "glucose": 95,
+      "oxygenBlood": 98,
+      "bloodPressureSystolic": 120,
+      "bloodPressureDiastolic": 80,
+      "temperature": 36.8,
+      "age": 35,
+      "height": 1.75,
+      "weight": 70,
+      "respiratoryRate": 16,
+      "bloodType": "O+",
+      "heartRate": 72
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Response">
+    ```json
+    {
+      "message": "Registro médico guardado",
+      "id": 123
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Error Response">
+    ```json
+    {
+      "error": "Datos médicos inválidos",
+      "detalles": {
+        "glucose": ["Expected number, received string"],
+        "bloodType": ["Invalid enum value"]
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Frontend Submit Handler
+
+From `src/components/medinfo.jsx:22-55`:
+
+```jsx
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setMessage('');
+
+  try {
+    const response = await fetch(`${API_URL}/api/medical-info`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ ...formData, userId })
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      setMessage('¡Información guardada exitosamente!');
+      medicalDataEmitter.emit(); // Notify other components
+      // Reset form
+      setFormData({
+        glucose: '', oxygenBlood: '', bloodPressureSystolic: '',
+        bloodPressureDiastolic: '', temperature: '', age: '',
+        height: '', weight: '', respiratoryRate: '', bloodType: '', heartRate: ''
+      });
+    } else {
+      setMessage(`Error: ${data.error}`);
+    }
+  } catch (error) {
+    setMessage(`Error de conexión: ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
+```
+
+## Backend Implementation
+
+### Route Handler
+
+From `src/routes/medical.js:1-45`:
+
+```javascript
+import { Router } from 'express';
+import pool from '../../db.js';
+import auth from '../middleware/auth.js';
+import { medicalSchema } from '../validators/medical.js';
+
+const router = Router();
+
+// All medical routes require authentication
+router.use(auth);
+
+router.post('/', async (req, res) => {
+  try {
+    // Validate with Zod schema
+    const parsed = medicalSchema.safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Datos médicos inválidos',
+        detalles: parsed.error.flatten().fieldErrors
+      });
+    }
+
+    const {
+      userId, glucose, oxygenBlood, bloodPressureSystolic, bloodPressureDiastolic,
+      temperature, age, height, weight, respiratoryRate, bloodType, heartRate,
+    } = parsed.data;
+
+    // Authorization: users can only save their own data
+    if (req.user.id !== userId) {
+      return res.status(403).json({ error: 'No autorizado para guardar datos de otro usuario' });
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO medical_records
+         (user_id, glucose, oxygen_blood, blood_pressure_systolic, blood_pressure_diastolic,
+          temperature, age, height, weight, respiratory_rate, blood_type, heart_rate, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+       RETURNING id`,
+      [userId, glucose, oxygenBlood, bloodPressureSystolic, bloodPressureDiastolic,
+       temperature, age, height, weight, respiratoryRate, bloodType, heartRate]
+    );
+
+    console.log(`[medical] Registro guardado: id=${rows[0].id}, userId=${userId}`);
+    return res.status(201).json({ message: 'Registro médico guardado', id: rows[0].id });
+  } catch (error) {
+    console.error('[medical] Error al guardar registro:', error.message);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+export default router;
+```
+
+<Warning>
+  The route includes an authorization check to ensure users can only submit data for their own user ID, preventing unauthorized data injection.
+</Warning>
+
+## Data Validation
+
+### Zod Schema
+
+From `src/validators/medical.js:1-18`:
+
+```javascript
+import { z } from 'zod';
+
+const toNumber = z.union([z.number(), z.string()]).transform(val => Number(val));
+
+export const medicalSchema = z.object({
+  userId:                   toNumber,
+  glucose:                  toNumber,
+  oxygenBlood:              toNumber,
+  bloodPressureSystolic:    toNumber,
+  bloodPressureDiastolic:   toNumber,
+  temperature:              toNumber,
+  age:                      toNumber,
+  height:                   toNumber,
+  weight:                   toNumber,
+  respiratoryRate:          toNumber,
+  bloodType:                z.enum(['A+','A-','B+','B-','AB+','AB-','O+','O-']),
+  heartRate:                toNumber,
+});
+```
+
+### Key Validation Features
+
+<Card title="Flexible Number Parsing" icon="code">
+  The schema accepts both strings and numbers, automatically converting strings to numbers. This handles form data where inputs are strings:
+  
+  ```javascript
+  const toNumber = z.union([z.number(), z.string()]).transform(val => Number(val));
+  ```
+</Card>
+
+<Card title="Blood Type Enum" icon="droplet">
+  Blood type is strictly validated against the 8 valid blood types:
+  
+  ```javascript
+  bloodType: z.enum(['A+','A-','B+','B-','AB+','AB-','O+','O-'])
+  ```
+</Card>
+
+<Card title="Error Details" icon="circle-exclamation">
+  Validation errors return detailed field-level feedback:
+  
+  ```javascript
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Datos médicos inválidos',
+      detalles: parsed.error.flatten().fieldErrors
+    });
+  }
+  ```
+</Card>
+
+## Database Storage
+
+### Medical Records Table
+
+From `initDb.js:17-34`:
+
+```sql
+CREATE TABLE IF NOT EXISTS medical_records (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  glucose NUMERIC,
+  oxygen_blood NUMERIC,
+  blood_pressure_systolic NUMERIC,
+  blood_pressure_diastolic NUMERIC,
+  temperature NUMERIC,
+  age INTEGER,
+  height NUMERIC,
+  weight NUMERIC,
+  respiratory_rate NUMERIC,
+  blood_type VARCHAR(2),
+  heart_rate NUMERIC,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Key Database Features
+
+<Accordion title="Foreign Key Constraint">
+  `user_id` references the `users` table with CASCADE delete:
+  
+  ```sql
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+  ```
+  
+  This ensures that when a user is deleted, all their medical records are automatically removed.
+</Accordion>
+
+<Accordion title="Timestamp Tracking">
+  Each record automatically stores creation time:
+  
+  ```sql
+  created_at TIMESTAMP DEFAULT NOW()
+  ```
+  
+  This enables time-series analysis and tracking health trends over time.
+</Accordion>
+
+<Accordion title="Numeric Precision">
+  Vitals use NUMERIC type for precise decimal storage:
+  
+  ```sql
+  glucose NUMERIC,
+  temperature NUMERIC,
+  height NUMERIC
+  ```
+</Accordion>
+
+## Retrieving Medical Data
+
+### Get Latest Record
+
+From `src/routes/medical.js:49-79`:
+
+```javascript
+router.get('/latest', async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId es requerido' });
+    }
+
+    // Authorization: users can only query their own records
+    if (req.user.id !== Number(userId)) {
+      return res.status(403).json({ error: 'No autorizado para consultar datos de otro usuario' });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT * FROM medical_records
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No se encontraron registros médicos' });
+    }
+
+    return res.json(rows[0]);
+  } catch (error) {
+    console.error('[medical] Error al obtener registro:', error.message);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+```
+
+### Frontend Data Fetching
+
+From `src/components/healthplan.jsx:22-45`:
+
+```jsx
+const fetchMedicalData = async () => {
+  try {
+    const response = await fetch(`${API_URL}/api/medical-info/latest?userId=${userId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const data = await response.json();
+
+    if (response.ok) {
+      setMedicalData(data);
+      analyzeHealth(data);
+      setError('');
+    } else {
+      setMedicalData(null);
+      setError('No hay datos médicos registrados. Por favor, completa el formulario.');
+    }
+  } catch (err) {
+    setMedicalData(null);
+    setError('Error al obtener datos médicos: ' + err.message);
+  } finally {
+    setLoading(false);
+  }
+};
+```
+
+## Real-time Updates
+
+### Event Emitter Pattern
+
+From `src/utils/medicalDataContext.js`:
+
+```javascript
+class EventEmitter {
+  constructor() {
+    this.listeners = [];
+  }
+
+  emit() {
+    this.listeners.forEach(callback => callback());
+  }
+
+  subscribe(callback) {
+    this.listeners.push(callback);
+    return () => {
+      this.listeners = this.listeners.filter(cb => cb !== callback);
+    };
+  }
+}
+
+export const medicalDataEmitter = new EventEmitter();
+```
+
+### Usage
+
+When data is saved, emit an event:
+
+```jsx
+if (response.ok) {
+  setMessage('¡Información guardada exitosamente!');
+  medicalDataEmitter.emit(); // Notify dashboard to refresh
+}
+```
+
+Components subscribe to updates:
+
+```jsx
+useEffect(() => {
+  fetchMedicalData();
+  const unsubscribe = medicalDataEmitter.subscribe(() => {
+    fetchMedicalData(); // Refresh when new data saved
+  });
+  return unsubscribe;
+}, []);
+```
+
+<Note>
+  This pattern ensures the health dashboard automatically updates when new medical data is submitted, without requiring manual page refresh.
+</Note>
+
+## Security Considerations
+
+1. **Authentication Required**: All medical routes use the `auth` middleware
+   ```javascript
+   router.use(auth);
+   ```
+
+2. **Authorization Checks**: Users can only submit/view their own data
+   ```javascript
+   if (req.user.id !== userId) {
+     return res.status(403).json({ error: 'No autorizado' });
+   }
+   ```
+
+3. **Input Validation**: Zod schema prevents invalid data
+   ```javascript
+   const parsed = medicalSchema.safeParse(req.body);
+   ```
+
+4. **SQL Injection Prevention**: Parameterized queries
+   ```javascript
+   pool.query(`SELECT * FROM medical_records WHERE user_id = $1`, [userId])
+   ```
+
+## Best Practices
+
+<Card title="Regular Tracking" icon="calendar">
+  Encourage users to input data regularly for trend analysis:
+  - Daily tracking of critical vitals (glucose for diabetics)
+  - Weekly general health checks
+  - Immediate logging after doctor visits
+</Card>
+
+<Card title="Data Accuracy" icon="bullseye">
+  Ensure accurate measurements:
+  - Use calibrated medical devices
+  - Measure at consistent times
+  - Rest before taking vitals
+  - Follow device instructions
+</Card>
+
+<Card title="Privacy Protection" icon="shield">
+  Medical data is highly sensitive:
+  - Never share authentication tokens
+  - Log out on shared devices
+  - Review access logs regularly
+  - Report suspicious activity
+</Card>
+
+## Related Documentation
+
+- [Authentication System](/features/authentication) - Learn how to authenticate users
+- [Health Dashboard](/features/health-dashboard) - View and analyze tracked data

@@ -1,0 +1,201 @@
+---
+title: 'Save Medical Record'
+api: 'POST /api/medical-info/'
+description: 'Create and save a new medical record for a user'
+---
+
+## Authentication
+
+This endpoint requires authentication via JWT Bearer token. Users can only save medical records for themselves.
+
+## Request Body
+
+<ParamField body="userId" type="number" required>
+  The ID of the user this medical record belongs to. Must match the authenticated user's ID.
+</ParamField>
+
+<ParamField body="glucose" type="number" required>
+  Blood glucose level (mg/dL).
+</ParamField>
+
+<ParamField body="oxygenBlood" type="number" required>
+  Blood oxygen saturation level (%).
+</ParamField>
+
+<ParamField body="bloodPressureSystolic" type="number" required>
+  Systolic blood pressure (mmHg).
+</ParamField>
+
+<ParamField body="bloodPressureDiastolic" type="number" required>
+  Diastolic blood pressure (mmHg).
+</ParamField>
+
+<ParamField body="temperature" type="number" required>
+  Body temperature (°C or °F).
+</ParamField>
+
+<ParamField body="age" type="number" required>
+  Age of the user in years.
+</ParamField>
+
+<ParamField body="height" type="number" required>
+  Height (cm or inches).
+</ParamField>
+
+<ParamField body="weight" type="number" required>
+  Weight (kg or lbs).
+</ParamField>
+
+<ParamField body="respiratoryRate" type="number" required>
+  Respiratory rate (breaths per minute).
+</ParamField>
+
+<ParamField body="bloodType" type="string" required>
+  Blood type. Must be one of: `A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+`, `O-`.
+</ParamField>
+
+<ParamField body="heartRate" type="number" required>
+  Heart rate (beats per minute).
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message confirming the medical record was saved.
+</ResponseField>
+
+<ResponseField name="id" type="number">
+  The unique ID of the newly created medical record.
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL
+curl -X POST https://api.mediguide.com/api/medical-info/ \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": 123,
+    "glucose": 95,
+    "oxygenBlood": 98,
+    "bloodPressureSystolic": 120,
+    "bloodPressureDiastolic": 80,
+    "temperature": 36.6,
+    "age": 35,
+    "height": 175,
+    "weight": 70,
+    "respiratoryRate": 16,
+    "bloodType": "O+",
+    "heartRate": 72
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.mediguide.com/api/medical-info/', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    userId: 123,
+    glucose: 95,
+    oxygenBlood: 98,
+    bloodPressureSystolic: 120,
+    bloodPressureDiastolic: 80,
+    temperature: 36.6,
+    age: 35,
+    height: 175,
+    weight: 70,
+    respiratoryRate: 16,
+    bloodType: 'O+',
+    heartRate: 72
+  })
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+```python Python
+import requests
+
+url = 'https://api.mediguide.com/api/medical-info/'
+headers = {
+    'Authorization': f'Bearer {token}',
+    'Content-Type': 'application/json'
+}
+data = {
+    'userId': 123,
+    'glucose': 95,
+    'oxygenBlood': 98,
+    'bloodPressureSystolic': 120,
+    'bloodPressureDiastolic': 80,
+    'temperature': 36.6,
+    'age': 35,
+    'height': 175,
+    'weight': 70,
+    'respiratoryRate': 16,
+    'bloodType': 'O+',
+    'heartRate': 72
+}
+
+response = requests.post(url, headers=headers, json=data)
+print(response.json())
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json Success Response (201)
+{
+  "message": "Registro médico guardado",
+  "id": 456
+}
+```
+
+```json Error Response (400)
+{
+  "error": "Datos médicos inválidos",
+  "detalles": {
+    "bloodType": ["Invalid enum value. Expected 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-', received 'X+'"],
+    "glucose": ["Required"]
+  }
+}
+```
+
+```json Error Response (403)
+{
+  "error": "No autorizado para guardar datos de otro usuario"
+}
+```
+
+```json Error Response (500)
+{
+  "error": "Error interno del servidor"
+}
+```
+
+</ResponseExample>
+
+## Validation Rules
+
+All request body parameters are validated using the following rules:
+
+- **userId**: Must be a number (accepts string that can be converted to number)
+- **glucose**: Must be a number
+- **oxygenBlood**: Must be a number
+- **bloodPressureSystolic**: Must be a number
+- **bloodPressureDiastolic**: Must be a number
+- **temperature**: Must be a number
+- **age**: Must be a number
+- **height**: Must be a number
+- **weight**: Must be a number
+- **respiratoryRate**: Must be a number
+- **bloodType**: Must be one of the enum values: `A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+`, `O-`
+- **heartRate**: Must be a number
+
+## Authorization
+
+The authenticated user can only save medical records for their own `userId`. Attempting to save records for a different user will result in a 403 Forbidden error.

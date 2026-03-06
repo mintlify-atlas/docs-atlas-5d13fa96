@@ -1,0 +1,151 @@
+---
+title: 'Sign Up'
+api: 'POST /api/users/signup'
+description: 'Register a new user account'
+---
+
+## Endpoint
+
+```
+POST /api/users/signup
+```
+
+Creates a new user account with username, email, and password. Returns a JWT token valid for 7 days upon successful registration.
+
+## Request Body
+
+<ParamField body="username" type="string" required>
+  Unique username for the account. Must not already exist in the system.
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  User's email address. Must be unique and not already registered.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  Account password. Will be hashed using bcrypt with 10 salt rounds before storage.
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message: "Usuario registrado exitosamente"
+</ResponseField>
+
+<ResponseField name="token" type="string">
+  JWT authentication token valid for 7 days. Include in Authorization header for authenticated requests.
+</ResponseField>
+
+<ResponseField name="userId" type="integer">
+  Unique identifier for the newly created user.
+</ResponseField>
+
+<ResponseField name="username" type="string">
+  The registered username.
+</ResponseField>
+
+## Code Examples
+
+<CodeGroup>
+
+```bash curl
+curl -X POST https://api.mediguide.com/api/users/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "johndoe",
+    "email": "john@example.com",
+    "password": "securePassword123"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.mediguide.com/api/users/signup', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    username: 'johndoe',
+    email: 'john@example.com',
+    password: 'securePassword123'
+  })
+});
+
+const data = await response.json();
+console.log(data.token); // JWT token
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'https://api.mediguide.com/api/users/signup',
+    json={
+        'username': 'johndoe',
+        'email': 'john@example.com',
+        'password': 'securePassword123'
+    }
+)
+
+data = response.json()
+print(data['token'])  # JWT token
+```
+
+</CodeGroup>
+
+## Response Example
+
+```json Success Response (201)
+{
+  "message": "Usuario registrado exitosamente",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "userId": 42,
+  "username": "johndoe"
+}
+```
+
+## Error Responses
+
+<ResponseField name="error" type="string">
+  Error message describing what went wrong.
+</ResponseField>
+
+### 400 Bad Request
+
+Returned when required fields are missing or validation fails.
+
+```json Missing Fields
+{
+  "error": "Todos los campos son requeridos"
+}
+```
+
+```json Username Already Exists
+{
+  "error": "Usuario ya está registrado"
+}
+```
+
+```json Email Already Exists
+{
+  "error": "Correo ya está registrado"
+}
+```
+
+### 500 Internal Server Error
+
+Returned when an unexpected server error occurs.
+
+```json Server Error
+{
+  "error": "Error interno del servidor"
+}
+```
+
+## Implementation Details
+
+- Passwords are hashed using bcrypt with 10 salt rounds before database storage
+- JWT tokens are signed with HS256 algorithm and expire after 7 days
+- The system checks for both username and email uniqueness before registration
+- User creation timestamp is automatically set to current time
+- Source: `src/routes/users.js:11`

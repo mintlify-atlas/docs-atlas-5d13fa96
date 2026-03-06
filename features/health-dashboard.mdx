@@ -1,0 +1,645 @@
+---
+title: Health Dashboard
+description: Visualize medical data, receive personalized health insights, and track vital sign trends
+icon: chart-line
+---
+
+The Health Dashboard is the central hub where users view their tracked medical data, receive AI-powered health analysis, and get personalized care recommendations based on their vitals.
+
+## Overview
+
+The dashboard provides:
+- **Real-time vital signs display** - View your latest medical measurements
+- **Health risk analysis** - Identify parameters outside normal ranges
+- **Symptom detection** - Get alerts about potential health issues
+- **Personalized care plans** - Receive targeted health improvement recommendations
+- **BMI calculation** - Automatic body mass index computation
+- **Risk categorization** - Color-coded health alerts (low, medium, high, critical)
+
+<Note>
+  The dashboard automatically updates when new medical data is submitted, providing instant feedback on health status.
+</Note>
+
+## Dashboard Components
+
+### Medical Data Grid
+
+From `src/components/healthplan.jsx:122-136`:
+
+```jsx
+<section className="medical-data-section">
+  <h2>📊 Tus Datos Médicos Actuales</h2>
+  <div className="medical-data-grid">
+    <p className="medical-data-item"><strong>Glucosa:</strong> {medicalData.glucose ?? 'N/A'} mg/dL</p>
+    <p className="medical-data-item"><strong>SpO₂:</strong> {medicalData.oxygen_blood ?? 'N/A'}%</p>
+    <p className="medical-data-item"><strong>Presión Arterial:</strong> {medicalData.blood_pressure_systolic}/{medicalData.blood_pressure_diastolic} mmHg</p>
+    <p className="medical-data-item"><strong>Frecuencia Cardíaca:</strong> {medicalData.heart_rate ?? 'N/A'} lpm</p>
+    <p className="medical-data-item"><strong>Temperatura:</strong> {medicalData.temperature ?? 'N/A'}°C</p>
+    <p className="medical-data-item"><strong>Frecuencia Respiratoria:</strong> {medicalData.respiratory_rate ?? 'N/A'} resp/min</p>
+    <p className="medical-data-item"><strong>Edad:</strong> {medicalData.age ?? 'N/A'} años</p>
+    <p className="medical-data-item"><strong>Altura:</strong> {medicalData.height ?? 'N/A'} m</p>
+    <p className="medical-data-item"><strong>Peso:</strong> {medicalData.weight ?? 'N/A'} kg</p>
+    <p className="medical-data-item"><strong>Tipo de Sangre:</strong> {medicalData.blood_type ?? 'N/A'}</p>
+  </div>
+</section>
+```
+
+### Health Findings Section
+
+From `src/components/healthplan.jsx:138-151`:
+
+```jsx
+{symptoms.length > 0 && (
+  <section className="symptoms-section">
+    <h2>⚠️ Hallazgos Detectados ({symptoms.length})</h2>
+    {symptoms.map((item, index) => (
+      <div key={index} className={`symptom-card symptom-${item.risk.toLowerCase()}`}>
+        <h3>{item.parameter} - {item.level}</h3>
+        <p><strong>Valor:</strong> {item.value}</p>
+        <p><strong>Posibles síntomas:</strong> {item.symptoms.join(', ')}</p>
+        <p><strong>Recomendaciones:</strong></p>
+        <ul>{item.recommendations.map((rec, i) => <li key={i}>{rec}</li>)}</ul>
+      </div>
+    ))}
+  </section>
+)}
+```
+
+### Personalized Health Plans
+
+From `src/components/healthplan.jsx:153-165`:
+
+```jsx
+{healthPlans.length > 0 && (
+  <section className="health-plans-section">
+    <h2>📅 Planes de Salud Recomendados ({healthPlans.length})</h2>
+    {healthPlans.map((plan, index) => (
+      <section key={index} className="health-plan-card">
+        <h3>{plan.name}</h3>
+        <p><strong>Duración:</strong> {plan.duration}</p>
+        <p><strong>Actividades recomendadas:</strong></p>
+        <ul>{plan.activities.map((activity, i) => <li key={i}>{activity}</li>)}</ul>
+      </section>
+    ))}
+  </section>
+)}
+```
+
+## Health Analysis Engine
+
+The dashboard includes sophisticated health analysis logic that evaluates each vital sign and generates insights.
+
+### Glucose Analysis
+
+<Tabs>
+  <Tab title="Hypoglycemia (Critical)">
+    From `src/components/healthplan.jsx:51-52`:
+    
+    ```javascript
+    if (data.glucose < 70) {
+      detectedSymptoms.push({
+        parameter: 'Glucosa',
+        level: 'CRÍTICO - Hipoglucemia',
+        value: `${data.glucose} mg/dL`,
+        symptoms: ['Temblores', 'Sudoración', 'Palpitaciones', 'Mareos', 'Confusión'],
+        recommendations: [
+          'Consumir azúcar o bebida azucarada inmediatamente',
+          'Buscar atención médica urgente',
+          'Descansar y mantenerse hidratado'
+        ],
+        risk: 'ALTO'
+      });
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Prediabetes">
+    From `src/components/healthplan.jsx:53-55`:
+    
+    ```javascript
+    else if (data.glucose >= 100 && data.glucose <= 125) {
+      detectedSymptoms.push({
+        parameter: 'Glucosa',
+        level: 'PREDIABETES',
+        value: `${data.glucose} mg/dL`,
+        symptoms: ['Sed excesiva', 'Mayor frecuencia urinaria', 'Fatiga', 'Visión borrosa'],
+        recommendations: [
+          'Reducir ingesta de azúcares y carbohidratos refinados',
+          'Aumentar actividad física (30 min/día)',
+          'Consultar endocrinólogo',
+          'Monitorear glucosa regularmente'
+        ],
+        risk: 'MEDIO'
+      });
+      
+      plans.push({
+        name: 'Plan de Control de Glucosa - 4 Semanas',
+        duration: 'Semanal',
+        activities: [
+          'Día 1-3: Medir glucosa en ayunas',
+          'Día 4-7: Ejercicio cardiovascular 30 min/día',
+          'Reducir bebidas azucaradas y postres',
+          'Aumentar consumo de verduras y proteínas'
+        ]
+      });
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Diabetes">
+    From `src/components/healthplan.jsx:56-59`:
+    
+    ```javascript
+    else if (data.glucose > 125) {
+      detectedSymptoms.push({
+        parameter: 'Glucosa',
+        level: 'DIABETES - Valores Elevados',
+        value: `${data.glucose} mg/dL`,
+        symptoms: [
+          'Sed excesiva',
+          'Micción frecuente',
+          'Fatiga crónica',
+          'Infecciones recurrentes',
+          'Visión borrosa'
+        ],
+        recommendations: [
+          'Consultar médico inmediatamente',
+          'Iniciar tratamiento farmacológico si es necesario',
+          'Cambios dietéticos severos',
+          'Monitoreo diario de glucosa'
+        ],
+        risk: 'CRÍTICO'
+      });
+      
+      plans.push({
+        name: 'Plan de Gestión de Diabetes - Mensual',
+        duration: 'Mensual',
+        activities: [
+          'Semana 1: Consulta con endocrinólogo',
+          'Semana 2: Iniciar dieta baja en carbohidratos',
+          'Semana 3-4: Ejercicio regular y monitoreo diario',
+          'Visitas de seguimiento cada 2 semanas'
+        ]
+      });
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Blood Pressure Analysis
+
+From `src/components/healthplan.jsx:65-74`:
+
+```javascript
+const sys = data.blood_pressure_systolic;
+const dia = data.blood_pressure_diastolic;
+let bpLevel = 'Normal', bpRisk = 'BAJO', bpSymptoms = [];
+
+if (sys >= 180 || dia >= 120) {
+  bpLevel = 'EMERGENCIA - Crisis Hipertensiva';
+  bpRisk = 'CRÍTICO';
+  bpSymptoms = ['Dolor de cabeza intenso', 'Sudoración', 'Ansiedad severa', 'Dolor torácico', 'Visión borrosa'];
+}
+else if (sys >= 140 || dia >= 90) {
+  bpLevel = 'HIPERTENSIÓN Etapa 2';
+  bpRisk = 'ALTO';
+  bpSymptoms = ['A menudo asintomática', 'Cefalea ocasional', 'Visión borrosa', 'Fatiga'];
+}
+else if (sys >= 130 || dia >= 80) {
+  bpLevel = 'HIPERTENSIÓN Etapa 1';
+  bpRisk = 'MEDIO';
+  bpSymptoms = ['Generalmente asintomática', 'Posible fatiga leve', 'Dolor de cabeza ocasional'];
+}
+
+if (bpRisk !== 'BAJO') {
+  detectedSymptoms.push({
+    parameter: 'Presión Arterial',
+    level: bpLevel,
+    value: `${sys}/${dia} mmHg`,
+    systolic: `${sys} mmHg (Sistólica)`,
+    diastolic: `${dia} mmHg (Diastólica)`,
+    symptoms: bpSymptoms,
+    recommendations: sys >= 180 || dia >= 120 ? [
+      '⚠️ EMERGENCIA: Buscar atención médica inmediata',
+      'Permanecer acostado y calmado',
+      'No automedicarse',
+      'Llamar a emergencias'
+    ] : [
+      'Reducir ingesta de sal a <2.3g/día',
+      'Aumentar ejercicio aeróbico (150 min/semana)',
+      'Reducir estrés con meditación',
+      'Limitar consumo de alcohol'
+    ],
+    risk: bpRisk
+  });
+}
+```
+
+<Warning>
+  Blood pressure readings of 180/120 or higher constitute a hypertensive crisis requiring immediate medical attention.
+</Warning>
+
+### Heart Rate Analysis
+
+From `src/components/healthplan.jsx:76-81`:
+
+```javascript
+if (data.heart_rate > 100) {
+  detectedSymptoms.push({
+    parameter: 'Frecuencia Cardíaca',
+    level: 'TAQUICARDIA',
+    value: `${data.heart_rate} lpm`,
+    symptoms: ['Palpitaciones', 'Ansiedad', 'Fatiga', 'Mareos'],
+    recommendations: [
+      'Reducir cafeína y estrés',
+      'Aumentar ejercicio cardiovascular gradualmente',
+      'Técnicas de relajación',
+      'Consultar cardiólogo si persiste'
+    ],
+    risk: 'MEDIO'
+  });
+  
+  plans.push({
+    name: 'Plan de Estabilidad Cardíaca - 3 Semanas',
+    duration: 'Semanal',
+    activities: [
+      'Día 1-3: Eliminar cafeína y bebidas energéticas',
+      'Día 4-7: Meditación 10 min/día',
+      'Semana 2-3: Ejercicio aeróbico moderado 30 min/día',
+      'Monitoreo diario de FC en reposo'
+    ]
+  });
+}
+else if (data.heart_rate < 60 && data.age < 50) {
+  detectedSymptoms.push({
+    parameter: 'Frecuencia Cardíaca',
+    level: 'BRADICARDIA',
+    value: `${data.heart_rate} lpm`,
+    symptoms: ['Fatiga', 'Mareos', 'Síncope en casos severos'],
+    recommendations: [
+      'Evaluar si hay síntomas asociados',
+      'Consultar cardiólogo',
+      'Monitoreo continuo'
+    ],
+    risk: 'BAJO-MEDIO'
+  });
+}
+```
+
+### Oxygen Saturation Analysis
+
+From `src/components/healthplan.jsx:61-63`:
+
+```javascript
+if (data.oxygen_blood < 90) {
+  detectedSymptoms.push({
+    parameter: 'Saturación de Oxígeno (SpO₂)',
+    level: data.oxygen_blood < 75 ? 'CRÍTICO - Hipoxemia Grave' : 'ALERTA - Hipoxemia',
+    value: `${data.oxygen_blood}%`,
+    symptoms: ['Falta de aire', 'Fatiga', 'Mareos', 'Confusión', 'Color azulado en piel'],
+    recommendations: data.oxygen_blood < 75 ? [
+      'Buscar atención médica de emergencia',
+      'Oxígeno suplementario requerido',
+      'No realizar actividad física'
+    ] : [
+      'Descansar en posición sentada',
+      'Respirar profundamente',
+      'Consultar médico',
+      'Evitar actividad extenuante'
+    ],
+    risk: data.oxygen_blood < 75 ? 'CRÍTICO' : 'ALTO'
+  });
+}
+```
+
+### Temperature Analysis
+
+From `src/components/healthplan.jsx:83-88`:
+
+```javascript
+if (data.temperature >= 38) {
+  const level = data.temperature >= 41 ? 'CRÍTICO - Hipertermia Peligrosa' :
+                data.temperature >= 39.5 ? 'FIEBRE ALTA' : 'FIEBRE';
+  
+  detectedSymptoms.push({
+    parameter: 'Temperatura Corporal',
+    level,
+    value: `${data.temperature}°C`,
+    symptoms: ['Escalofríos', 'Malestar general', 'Dolor corporal', 'Sudoración'],
+    recommendations: data.temperature >= 41 ? [
+      'EMERGENCIA: Ir a urgencias inmediatamente',
+      'Aplicar compresas frías',
+      'Hidratación inmediata'
+    ] : [
+      'Reposo en cama',
+      'Hidratación abundante',
+      'Paracetamol o ibuprofeno según indicaciones',
+      'Consultar médico si dura >3 días'
+    ],
+    risk: data.temperature >= 41 ? 'CRÍTICO' : 'ALTO'
+  });
+}
+else if (data.temperature < 35) {
+  detectedSymptoms.push({
+    parameter: 'Temperatura Corporal',
+    level: 'HIPOTERMIA - Riesgo Vital',
+    value: `${data.temperature}°C`,
+    symptoms: ['Confusión', 'Temblores', 'Pulso débil', 'Dificultad para hablar'],
+    recommendations: [
+      'Buscar atención médica de emergencia',
+      'Calentar gradualmente el cuerpo',
+      'Evitar movimientos bruscos'
+    ],
+    risk: 'CRÍTICO'
+  });
+}
+```
+
+### BMI Calculation
+
+From `src/components/healthplan.jsx:95-104`:
+
+```javascript
+if (data.height && data.weight) {
+  const imc = data.weight / (data.height * data.height);
+  let imcStatus = imc < 18.5 ? 'BAJO PESO' :
+                  imc < 25 ? 'PESO NORMAL' :
+                  imc < 30 ? 'SOBREPESO' : 'OBESIDAD';
+  
+  if (imcStatus !== 'PESO NORMAL') {
+    detectedSymptoms.push({
+      parameter: 'Índice de Masa Corporal (IMC)',
+      level: imcStatus,
+      value: `${imc.toFixed(1)} kg/m²`,
+      symptoms: ['Fatiga', 'Dificultad para respirar con actividad', 'Problemas articulares'],
+      recommendations: imcStatus === 'SOBREPESO' || imcStatus === 'OBESIDAD' ? [
+        'Crear déficit calórico de 500 cal/día',
+        'Ejercicio 300 min/semana',
+        'Dieta rica en proteína y fibra',
+        'Consultar nutricionista'
+      ] : [
+        'Aumentar ingesta calórica saludable',
+        'Incluir proteína en cada comida',
+        'Consultar nutricionista'
+      ],
+      risk: imcStatus === 'OBESIDAD' ? 'ALTO' : 'MEDIO'
+    });
+    
+    if (imcStatus === 'SOBREPESO' || imcStatus === 'OBESIDAD') {
+      plans.push({
+        name: `Plan de Pérdida de Peso Saludable - ${imcStatus === 'OBESIDAD' ? '12 Semanas' : '8 Semanas'}`,
+        duration: 'Mensual',
+        activities: [
+          'Dieta balanceada con déficit calórico moderado',
+          'Ejercicio aeróbico 3x/semana',
+          'Entrenamiento de fuerza 2x/semana',
+          'Seguimiento nutricional y médico'
+        ]
+      });
+    }
+  }
+}
+```
+
+## Risk Categorization
+
+The dashboard uses color-coded risk levels:
+
+<Accordion title="BAJO (Low Risk)">
+  - **Color**: Green
+  - **Meaning**: Parameters within normal range or minor deviations
+  - **Action**: Continue healthy habits, routine monitoring
+  - **Example**: Heart rate 50-100 bpm in healthy adults
+</Accordion>
+
+<Accordion title="MEDIO (Medium Risk)">
+  - **Color**: Yellow/Orange
+  - **Meaning**: Parameters showing early warning signs
+  - **Action**: Lifestyle modifications, increased monitoring
+  - **Example**: Prediabetes (glucose 100-125 mg/dL), Stage 1 Hypertension (130-139/80-89)
+</Accordion>
+
+<Accordion title="ALTO (High Risk)">
+  - **Color**: Orange/Red
+  - **Meaning**: Significant deviation requiring medical attention
+  - **Action**: Consult healthcare provider soon, implement care plan
+  - **Example**: Stage 2 Hypertension (≥140/90), Tachycardia (>100 bpm)
+</Accordion>
+
+<Accordion title="CRÍTICO (Critical Risk)">
+  - **Color**: Red
+  - **Meaning**: Life-threatening condition requiring immediate intervention
+  - **Action**: Seek emergency medical care immediately
+  - **Example**: Hypertensive crisis (≥180/120), Severe hypoxemia (less than 75% SpO2), Hypoglycemia (less than 70 mg/dL)
+</Accordion>
+
+## Data Fetching
+
+### Component Lifecycle
+
+From `src/components/healthplan.jsx:7-45`:
+
+```jsx
+function HealthPlan({ userId, token }) {
+  const [medicalData, setMedicalData] = useState(null);
+  const [healthPlans, setHealthPlans] = useState([]);
+  const [symptoms, setSymptoms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchMedicalData();
+    
+    // Subscribe to real-time updates
+    const unsubscribe = medicalDataEmitter.subscribe(() => {
+      fetchMedicalData();
+    });
+    
+    return unsubscribe;
+  }, []);
+
+  const fetchMedicalData = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/medical-info/latest?userId=${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        setMedicalData(data);
+        analyzeHealth(data); // Trigger health analysis
+        setError('');
+      } else {
+        setMedicalData(null);
+        setError('No hay datos médicos registrados. Por favor, completa el formulario de chequeo médico.');
+      }
+    } catch (err) {
+      setMedicalData(null);
+      setError('Error al obtener datos médicos: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+}
+```
+
+## User Interface Flows
+
+### First-Time User Experience
+
+<Steps>
+  <Step title="No Data State">
+    User sees a message: "No hay datos médicos registrados"
+  </Step>
+  
+  <Step title="Navigate to Medical Form">
+    User clicks to enter medical data
+  </Step>
+  
+  <Step title="Submit First Record">
+    User fills out and submits medical information
+  </Step>
+  
+  <Step title="Dashboard Populates">
+    Dashboard automatically refreshes and displays:
+    - Medical data grid with all vitals
+    - Health analysis results
+    - Personalized care plans (if any issues detected)
+  </Step>
+</Steps>
+
+### Returning User Experience
+
+<Steps>
+  <Step title="Dashboard Loads">
+    Latest medical record is fetched and displayed
+  </Step>
+  
+  <Step title="View Health Status">
+    User sees current vitals and any detected health concerns
+  </Step>
+  
+  <Step title="Review Recommendations">
+    User reads personalized care plans and recommendations
+  </Step>
+  
+  <Step title="Update Data">
+    User can submit new measurements, which instantly update the dashboard
+  </Step>
+</Steps>
+
+### Optimal Health State
+
+From `src/components/healthplan.jsx:167-179`:
+
+```jsx
+{symptoms.length === 0 && (
+  <section className="excellent-section">
+    <h2>✅ ¡Excelente!</h2>
+    <p>Tus parámetros biométricos están dentro de los rangos normales. Mantén estos hábitos saludables.</p>
+    <ul>
+      <li>Ejercicio regular: 150 min/semana de actividad cardiovascular</li>
+      <li>Dieta equilibrada: variada en verduras, frutas, proteína magra</li>
+      <li>Sueño: 7-9 horas diarias</li>
+      <li>Estrés: Técnicas de relajación y meditación</li>
+      <li>Revisiones: Chequeo médico anual</li>
+    </ul>
+  </section>
+)}
+```
+
+<Note>
+  When all vitals are within normal ranges, users receive positive reinforcement and general wellness tips.
+</Note>
+
+## Disclaimer
+
+From `src/components/healthplan.jsx:116`:
+
+```jsx
+<p className="disclaimer">
+  ⚠️ Descargo de responsabilidad: Esta información es educativa y NO reemplaza la consulta médica profesional.
+</p>
+```
+
+<Warning>
+  MediGuide provides educational health insights but is NOT a substitute for professional medical advice. Users should always consult healthcare providers for diagnosis and treatment.
+</Warning>
+
+## Loading States
+
+From `src/components/healthplan.jsx:110`:
+
+```jsx
+if (loading) return <div className="loading">Cargando datos médicos...</div>;
+```
+
+## Error Handling
+
+```jsx
+{error && <div className="error-message">{error}</div>}
+```
+
+Possible error states:
+- No medical data available
+- Network connection failure
+- Unauthorized access (expired token)
+- Server error
+
+## Performance Optimization
+
+### Event-Driven Updates
+
+```jsx
+const unsubscribe = medicalDataEmitter.subscribe(() => {
+  fetchMedicalData();
+});
+return unsubscribe; // Cleanup on unmount
+```
+
+### Conditional Rendering
+
+```jsx
+{symptoms.length > 0 && (
+  <section className="symptoms-section">
+    {/* Only render if there are findings */}
+  </section>
+)}
+```
+
+## Key Features Summary
+
+<Card title="Comprehensive Analysis" icon="magnifying-glass-chart">
+  Every vital sign is evaluated against medical thresholds with multi-level risk assessment (normal, elevated, high, critical).
+</Card>
+
+<Card title="Personalized Recommendations" icon="user-doctor">
+  Care plans are generated based on detected issues, with specific timelines and actionable activities.
+</Card>
+
+<Card title="Real-Time Updates" icon="bolt">
+  Dashboard refreshes automatically when new data is submitted, no page reload required.
+</Card>
+
+<Card title="Risk-Based Prioritization" icon="exclamation-triangle">
+  Critical findings are highlighted with urgent action items, while minor concerns get lifestyle recommendations.
+</Card>
+
+<Card title="BMI Integration" icon="weight-scale">
+  Automatic body mass index calculation with weight management plans for users outside normal range.
+</Card>
+
+## Best Practices for Users
+
+1. **Regular Monitoring**: Check dashboard after each medical data entry
+2. **Track Trends**: Submit data consistently to identify patterns over time
+3. **Follow Recommendations**: Implement suggested care plans and lifestyle changes
+4. **Seek Medical Care**: Don't ignore critical alerts - consult healthcare providers
+5. **Stay Informed**: Review symptom descriptions to understand your health status
+
+## Related Documentation
+
+- [Authentication System](/features/authentication) - Learn how users securely access their dashboard
+- [Medical Data Tracking](/features/medical-tracking) - Understand how data is collected and validated

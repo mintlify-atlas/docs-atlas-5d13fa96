@@ -1,0 +1,320 @@
+---
+title: Installation
+description: Set up MediGuide on your local development environment
+---
+
+## Prerequisites
+
+Before installing MediGuide, ensure you have the following installed on your system:
+
+<CardGroup cols={2}>
+  <Card title="Node.js" icon="node">
+    Version 18.0 or higher required
+  </Card>
+  
+  <Card title="PostgreSQL" icon="database">
+    Version 12.0 or higher recommended
+  </Card>
+</CardGroup>
+
+<Note>
+  You can verify your Node.js version by running `node --version` in your terminal.
+</Note>
+
+## Clone the Repository
+
+First, clone the MediGuide repository to your local machine:
+
+```bash
+git clone https://github.com/your-org/mediguide.git
+cd mediguide
+```
+
+## Install Dependencies
+
+MediGuide uses npm as its package manager. Install all required dependencies:
+
+<CodeGroup>
+```bash npm
+npm install
+```
+
+```bash yarn
+yarn install
+```
+
+```bash pnpm
+pnpm install
+```
+</CodeGroup>
+
+This will install all dependencies defined in `package.json`, including:
+
+- **Frontend**: React, Vite, Capacitor
+- **Backend**: Express, PostgreSQL driver, JWT, bcrypt
+- **Validation**: Zod schema validator
+
+## Database Setup
+
+### Create PostgreSQL Database
+
+Create a new PostgreSQL database for MediGuide:
+
+```bash
+psql -U postgres
+```
+
+```sql
+CREATE DATABASE mediguide;
+```
+
+<Warning>
+  Make sure PostgreSQL is running before proceeding. You can start it with `sudo systemctl start postgresql` on Linux or use the PostgreSQL app on macOS.
+</Warning>
+
+## Environment Configuration
+
+Create a `.env` file in the root directory of the project with the following configuration:
+
+```bash .env
+# Database Configuration
+DB_USER=postgres
+DB_HOST=localhost
+DB_NAME=mediguide
+DB_PASSWORD=your_postgres_password
+DB_PORT=5432
+
+# Server Configuration
+PORT=3001
+NODE_ENV=development
+
+# JWT Secret (use a strong random string)
+JWT_SECRET=your_jwt_secret_key_here_minimum_32_characters
+
+# Frontend API URL
+VITE_API_URL=http://localhost:3001
+```
+
+<Note>
+  For production, use a strong, randomly generated JWT secret. You can generate one using `openssl rand -base64 32`.
+</Note>
+
+### Environment Variables Explained
+
+| Variable | Description | Example |
+|----------|-------------|----------|
+| `DB_USER` | PostgreSQL username | `postgres` |
+| `DB_HOST` | Database host address | `localhost` |
+| `DB_NAME` | Database name | `mediguide` |
+| `DB_PASSWORD` | Database password | Your PostgreSQL password |
+| `DB_PORT` | PostgreSQL port | `5432` |
+| `PORT` | Backend server port | `3001` |
+| `JWT_SECRET` | Secret key for JWT tokens | Min 32 characters |
+| `VITE_API_URL` | Frontend API endpoint | `http://localhost:3001` |
+
+### Mobile Development Configuration
+
+If you're developing for mobile devices on your local network:
+
+```bash .env
+# Use your machine's IP address for mobile testing
+VITE_API_URL=http://192.168.1.X:3001
+```
+
+Replace `192.168.1.X` with your actual local IP address.
+
+## Initialize the Database
+
+MediGuide automatically creates the required database tables on first run. The initialization script creates:
+
+- **users** table for authentication
+- **medical_records** table for health data
+
+The database initialization runs automatically when you start the server, but you can also verify the schema:
+
+```javascript initDb.js
+import pool from './db.js';
+
+async function initializeDatabase() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(255) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        reset_code VARCHAR(10),
+        reset_code_expiry TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS medical_records (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        glucose NUMERIC,
+        oxygen_blood NUMERIC,
+        blood_pressure_systolic NUMERIC,
+        blood_pressure_diastolic NUMERIC,
+        temperature NUMERIC,
+        age INTEGER,
+        height NUMERIC,
+        weight NUMERIC,
+        respiratory_rate NUMERIC,
+        blood_type VARCHAR(2),
+        heart_rate NUMERIC,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+    console.log('✓ Database initialized successfully');
+  } catch (error) {
+    console.error('✗ Error initializing database:', error.message);
+    process.exit(1);
+  }
+}
+```
+
+## Start the Development Server
+
+MediGuide requires running both the backend API server and the frontend development server.
+
+### Start Backend Server
+
+In your first terminal, start the Express backend:
+
+```bash
+node server.js
+```
+
+You should see:
+
+```bash
+✓ Database initialized successfully
+✓ Servidor corriendo en puerto 3001
+```
+
+### Start Frontend Development Server
+
+In a second terminal, start the Vite frontend:
+
+<CodeGroup>
+```bash npm
+npm run dev
+```
+
+```bash yarn
+yarn dev
+```
+
+```bash pnpm
+pnpm dev
+```
+</CodeGroup>
+
+The frontend will be available at:
+
+```
+http://localhost:5173
+```
+
+<Note>
+  The Vite dev server includes a proxy configuration that forwards `/api/*` requests to the backend server at `http://localhost:3001`.
+</Note>
+
+## Verify Installation
+
+Test that everything is working correctly:
+
+### 1. Check Backend Health
+
+```bash
+curl http://localhost:3001/api/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "ok",
+  "time": {
+    "now": "2026-03-06T..."
+  }
+}
+```
+
+### 2. Open Frontend
+
+Navigate to `http://localhost:5173` in your browser. You should see the MediGuide login/signup interface.
+
+<Warning>
+  If you see CORS errors, ensure both servers are running and the `VITE_API_URL` environment variable is set correctly.
+</Warning>
+
+## Build for Production
+
+When you're ready to build for production:
+
+```bash
+npm run build
+```
+
+This creates an optimized production build in the `dist` directory.
+
+## Mobile Development (Optional)
+
+To build for mobile platforms using Capacitor:
+
+### Sync with Capacitor
+
+```bash
+npx cap sync
+```
+
+### Build for Android
+
+```bash
+npx cap open android
+```
+
+### Build for iOS
+
+```bash
+npx cap open ios
+```
+
+<Note>
+  Mobile development requires Android Studio (for Android) or Xcode (for iOS) to be installed.
+</Note>
+
+## Troubleshooting
+
+### Database Connection Errors
+
+If you see connection errors:
+
+1. Verify PostgreSQL is running: `sudo systemctl status postgresql`
+2. Check your `.env` credentials match your PostgreSQL setup
+3. Ensure the database exists: `psql -U postgres -l`
+
+### Port Already in Use
+
+If port 3001 or 5173 is already in use:
+
+- Change `PORT` in `.env` for the backend
+- Vite will automatically try the next available port
+
+### JWT Errors
+
+If you see JWT-related errors:
+
+- Ensure `JWT_SECRET` is set in `.env`
+- Use a secret that's at least 32 characters long
+
+## Next Steps
+
+Now that you have MediGuide installed, continue to the [Quickstart](/quickstart) guide to learn how to use the application and make your first API calls.
+
+<Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+  Learn how to create an account and track your first health metrics
+</Card>

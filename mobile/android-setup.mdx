@@ -1,0 +1,328 @@
+---
+title: 'Android Setup'
+description: 'Set up and build the MediGuide Android app using Capacitor'
+icon: 'android'
+---
+
+## Prerequisites
+
+Before setting up the Android app, ensure you have the following installed:
+
+<Steps>
+  <Step title="Install Java Development Kit (JDK)">
+    Install JDK 11 or higher. You can verify your installation:
+    
+    ```bash
+    java -version
+    ```
+  </Step>
+
+  <Step title="Install Android Studio">
+    Download and install [Android Studio](https://developer.android.com/studio) with the following components:
+    - Android SDK
+    - Android SDK Platform
+    - Android Virtual Device (AVD)
+  </Step>
+
+  <Step title="Configure Environment Variables">
+    Add the following to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.):
+    
+    ```bash
+    export ANDROID_HOME=$HOME/Android/Sdk
+    export PATH=$PATH:$ANDROID_HOME/emulator
+    export PATH=$PATH:$ANDROID_HOME/platform-tools
+    export PATH=$PATH:$ANDROID_HOME/tools
+    export PATH=$PATH:$ANDROID_HOME/tools/bin
+    ```
+  </Step>
+
+  <Step title="Install Capacitor CLI">
+    Install the Capacitor CLI globally:
+    
+    ```bash
+    npm install -g @capacitor/cli
+    ```
+  </Step>
+</Steps>
+
+## Project Configuration
+
+MediGuide uses Capacitor 8.1.0 to bridge the web application with native Android functionality.
+
+### Build Configuration
+
+The Android project uses the following configuration:
+
+```gradle android/variables.gradle
+ext {
+    minSdkVersion = 24
+    compileSdkVersion = 36
+    targetSdkVersion = 36
+    androidxActivityVersion = '1.11.0'
+    androidxAppCompatVersion = '1.7.1'
+    androidxCoordinatorLayoutVersion = '1.3.0'
+    androidxCoreVersion = '1.17.0'
+    androidxFragmentVersion = '1.8.9'
+    coreSplashScreenVersion = '1.2.0'
+    androidxWebkitVersion = '1.14.0'
+    junitVersion = '4.13.2'
+    androidxJunitVersion = '1.3.0'
+    androidxEspressoCoreVersion = '3.7.0'
+    cordovaAndroidVersion = '14.0.1'
+}
+```
+
+<Note>
+MediGuide requires a minimum Android SDK version of 24 (Android 7.0 Nougat).
+</Note>
+
+## Installing Dependencies
+
+<Steps>
+  <Step title="Install Node Dependencies">
+    First, install all Node.js dependencies:
+    
+    ```bash
+    npm install
+    ```
+    
+    This will install Capacitor and all required packages including:
+    - `@capacitor/android` (^8.1.0)
+    - `@capacitor/cli` (^8.1.0)
+    - `@capacitor/core` (^8.1.0)
+  </Step>
+
+  <Step title="Build Web Assets">
+    Build the web application that will be bundled into the Android app:
+    
+    ```bash
+    npm run build
+    ```
+    
+    This creates the production build in the `dist` directory.
+  </Step>
+
+  <Step title="Sync Capacitor">
+    Sync your web app with the Android platform:
+    
+    ```bash
+    npx cap sync android
+    ```
+    
+    This command:
+    - Copies web assets to the Android project
+    - Updates native dependencies
+    - Syncs Capacitor plugins
+  </Step>
+</Steps>
+
+## Building the Android App
+
+### Using Android Studio
+
+<Steps>
+  <Step title="Open Project in Android Studio">
+    ```bash
+    npx cap open android
+    ```
+    
+    This opens the Android project in Android Studio.
+  </Step>
+
+  <Step title="Sync Gradle">
+    Android Studio will automatically sync Gradle files. Wait for this process to complete.
+  </Step>
+
+  <Step title="Build the APK">
+    - Select **Build > Build Bundle(s) / APK(s) > Build APK(s)**
+    - Wait for the build to complete
+    - The APK will be located in `android/app/build/outputs/apk/`
+  </Step>
+</Steps>
+
+### Using Command Line
+
+You can also build the app using Gradle from the command line:
+
+<CodeGroup>
+```bash Debug Build
+cd android
+./gradlew assembleDebug
+```
+
+```bash Release Build
+cd android
+./gradlew assembleRelease
+```
+</CodeGroup>
+
+<Warning>
+Release builds require proper signing configuration. Ensure you have configured your keystore in `android/app/build.gradle` before creating release builds.
+</Warning>
+
+## Running the App
+
+### On an Emulator
+
+<Steps>
+  <Step title="Create an AVD">
+    In Android Studio:
+    - Go to **Tools > Device Manager**
+    - Click **Create Device**
+    - Select a device definition (e.g., Pixel 5)
+    - Download and select a system image (Android 7.0 or higher)
+    - Finish setup
+  </Step>
+
+  <Step title="Run the App">
+    ```bash
+    npx cap run android
+    ```
+    
+    Or use Android Studio's Run button (green triangle).
+  </Step>
+</Steps>
+
+### On a Physical Device
+
+<Steps>
+  <Step title="Enable Developer Options">
+    On your Android device:
+    - Go to **Settings > About Phone**
+    - Tap **Build Number** 7 times
+    - Navigate to **Settings > Developer Options**
+    - Enable **USB Debugging**
+  </Step>
+
+  <Step title="Connect Device">
+    Connect your device via USB and verify it's recognized:
+    
+    ```bash
+    adb devices
+    ```
+    
+    You should see your device listed.
+  </Step>
+
+  <Step title="Run the App">
+    ```bash
+    npx cap run android --target YOUR_DEVICE_ID
+    ```
+  </Step>
+</Steps>
+
+## Project Structure
+
+The Android project structure follows the standard Capacitor layout:
+
+```
+android/
+├── app/
+│   ├── src/
+│   │   └── main/
+│   │       ├── java/com/mediguide/app/
+│   │       │   └── MainActivity.java
+│   │       ├── res/
+│   │       └── AndroidManifest.xml
+│   ├── build.gradle
+│   └── capacitor.build.gradle
+├── gradle/
+├── build.gradle
+├── gradle.properties
+├── settings.gradle
+└── variables.gradle
+```
+
+### MainActivity
+
+The main entry point for the Android app extends Capacitor's `BridgeActivity`:
+
+```java android/app/src/main/java/com/mediguide/app/MainActivity.java
+package com.mediguide.app;
+
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {}
+```
+
+<Note>
+Capacitor handles all the bridging between your web code and native Android functionality through `BridgeActivity`.
+</Note>
+
+## Common Issues
+
+### Gradle Build Failures
+
+If you encounter Gradle build errors:
+
+1. Clean the project:
+   ```bash
+   cd android
+   ./gradlew clean
+   ```
+
+2. Invalidate caches in Android Studio:
+   - **File > Invalidate Caches > Invalidate and Restart**
+
+### App Not Syncing
+
+If changes aren't appearing in the app:
+
+```bash
+npm run build
+npx cap sync android
+```
+
+### ADB Connection Issues
+
+If your device isn't recognized:
+
+```bash
+adb kill-server
+adb start-server
+adb devices
+```
+
+## Live Reload
+
+For faster development, you can use live reload:
+
+<Steps>
+  <Step title="Start Dev Server">
+    ```bash
+    npm run dev
+    ```
+    
+    Note the URL (e.g., `http://localhost:5173`)
+  </Step>
+
+  <Step title="Configure Server URL">
+    Update `capacitor.config.json` temporarily:
+    
+    ```json
+    {
+      "server": {
+        "url": "http://YOUR_COMPUTER_IP:5173",
+        "cleartext": true
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Sync and Run">
+    ```bash
+    npx cap sync android
+    npx cap run android
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+Remember to remove the `server` configuration before building for production.
+</Warning>
+
+## Next Steps
+
+- [Configure Capacitor Settings](/mobile/capacitor-config)
+- [Authentication API](/api/auth/signup)
+- [Medical Records API](/api/medical/save-record)

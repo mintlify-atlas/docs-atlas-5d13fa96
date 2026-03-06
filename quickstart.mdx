@@ -1,80 +1,532 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get started with MediGuide in 5 minutes
 ---
 
-## Get started in three steps
+## Overview
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide will walk you through creating your first MediGuide account, logging in, adding medical records, and viewing your health dashboard. By the end, you'll understand the complete user workflow.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  Make sure you've completed the [Installation](/installation) guide before proceeding.
 </Note>
+
+## Step-by-Step Guide
+
+<Steps>
+  <Step title="Start the Application">
+    Ensure both the backend and frontend servers are running:
+    
+    **Terminal 1 - Backend:**
+    ```bash
+    node server.js
+    ```
+    
+    **Terminal 2 - Frontend:**
+    ```bash
+    npm run dev
+    ```
+    
+    Navigate to `http://localhost:5173` in your browser.
+  </Step>
+  
+  <Step title="Create an Account">
+    On the landing page, you'll see the user registration form. Fill in your details:
+    
+    - **Username**: Choose a unique username
+    - **Email**: Your email address
+    - **Password**: Must be at least 6 characters
+    
+    ### API Endpoint: Sign Up
+    
+    ```http
+    POST /api/users/signup
+    Content-Type: application/json
+    ```
+    
+    **Request Body:**
+    ```json
+    {
+      "username": "john_doe",
+      "email": "john@example.com",
+      "password": "securePassword123"
+    }
+    ```
+    
+    **Response (201 Created):**
+    ```json
+    {
+      "message": "Usuario registrado exitosamente",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "userId": 1,
+      "username": "john_doe"
+    }
+    ```
+    
+    <Warning>
+      The JWT token expires after 7 days. Store it securely and include it in the `Authorization` header for all authenticated requests.
+    </Warning>
+  </Step>
+  
+  <Step title="Log In to Your Account">
+    If you already have an account, use the login form:
+    
+    ### API Endpoint: Log In
+    
+    ```http
+    POST /api/users/login
+    Content-Type: application/json
+    ```
+    
+    **Request Body:**
+    ```json
+    {
+      "username": "john_doe",
+      "password": "securePassword123"
+    }
+    ```
+    
+    **Response (200 OK):**
+    ```json
+    {
+      "message": "Inicio de sesión exitoso",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "userId": 1,
+      "username": "john_doe"
+    }
+    ```
+    
+    The application automatically stores your authentication token and user information in the browser's session state.
+  </Step>
+  
+  <Step title="Add Your First Medical Record">
+    Once logged in, you'll see the health tracking dashboard. Fill in your medical vitals in the "CHEQUEO MEDICO" section:
+    
+    ### Tracked Metrics
+    
+    - **Glucose Level** (mg/dl): 70-180 normal range
+    - **Blood Oxygen** (%): 95-100% normal range
+    - **Blood Pressure Systolic** (mmHg): Upper number
+    - **Blood Pressure Diastolic** (mmHg): Lower number
+    - **Temperature** (°C): 36.1-37.2°C normal range
+    - **Age** (years)
+    - **Height** (meters)
+    - **Weight** (kilograms)
+    - **Respiratory Rate** (breaths/min): 12-20 normal
+    - **Blood Type**: A+, A-, B+, B-, AB+, AB-, O+, O-
+    - **Heart Rate** (beats/min): 60-100 normal range
+    
+    ### API Endpoint: Save Medical Record
+    
+    ```http
+    POST /api/medical-info
+    Content-Type: application/json
+    Authorization: Bearer <your_jwt_token>
+    ```
+    
+    **Request Body:**
+    ```json
+    {
+      "userId": 1,
+      "glucose": 95,
+      "oxygenBlood": 98,
+      "bloodPressureSystolic": 120,
+      "bloodPressureDiastolic": 80,
+      "temperature": 36.6,
+      "age": 28,
+      "height": 1.75,
+      "weight": 70,
+      "respiratoryRate": 16,
+      "bloodType": "O+",
+      "heartRate": 72
+    }
+    ```
+    
+    **Response (201 Created):**
+    ```json
+    {
+      "message": "Registro médico guardado",
+      "id": 1
+    }
+    ```
+    
+    <Note>
+      All medical records are validated using Zod schema validation before being stored in the database.
+    </Note>
+  </Step>
+  
+  <Step title="View Your Health Dashboard">
+    After saving your medical record, the application automatically updates your health dashboard with your latest vitals.
+    
+    ### API Endpoint: Get Latest Medical Record
+    
+    ```http
+    GET /api/medical-info/latest?userId=1
+    Authorization: Bearer <your_jwt_token>
+    ```
+    
+    **Response (200 OK):**
+    ```json
+    {
+      "id": 1,
+      "user_id": 1,
+      "glucose": "95",
+      "oxygen_blood": "98",
+      "blood_pressure_systolic": "120",
+      "blood_pressure_diastolic": "80",
+      "temperature": "36.6",
+      "age": "28",
+      "height": "1.75",
+      "weight": "70",
+      "respiratory_rate": "16",
+      "blood_type": "O+",
+      "heart_rate": "72",
+      "created_at": "2026-03-06T12:00:00.000Z"
+    }
+    ```
+    
+    <Warning>
+      Users can only access their own medical records. Attempting to query another user's data will return a 403 Forbidden error.
+    </Warning>
+  </Step>
+</Steps>
+
+## Authentication Flow
+
+MediGuide uses JWT (JSON Web Tokens) for authentication. Here's how it works:
+
+### 1. Token Generation
+
+When you sign up or log in, the server generates a JWT token:
+
+```javascript server.js
+const token = jwt.sign(
+  { id: user.id, username: user.username },
+  process.env.JWT_SECRET,
+  { expiresIn: '7d' }
+);
+```
+
+### 2. Token Verification
+
+All protected routes verify the token using middleware:
+
+```javascript middleware/auth.js
+const auth = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'No autorizado: token requerido' });
+  }
+  
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Token inválido o expirado' });
+  }
+};
+```
+
+### 3. Making Authenticated Requests
+
+Include the token in the `Authorization` header:
+
+```javascript
+const response = await fetch(`${API_URL}/api/medical-info`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify(medicalData)
+});
+```
+
+## Data Validation
+
+MediGuide uses Zod for runtime type checking and validation:
+
+```javascript validators/medical.js
+import { z } from 'zod';
+
+const toNumber = z.union([z.number(), z.string()]).transform(val => Number(val));
+
+export const medicalSchema = z.object({
+  userId: toNumber,
+  glucose: toNumber,
+  oxygenBlood: toNumber,
+  bloodPressureSystolic: toNumber,
+  bloodPressureDiastolic: toNumber,
+  temperature: toNumber,
+  age: toNumber,
+  height: toNumber,
+  weight: toNumber,
+  respiratoryRate: toNumber,
+  bloodType: z.enum(['A+','A-','B+','B-','AB+','AB-','O+','O-']),
+  heartRate: toNumber,
+});
+```
+
+If validation fails, the API returns detailed error messages:
+
+```json
+{
+  "error": "Datos médicos inválidos",
+  "detalles": {
+    "glucose": ["Expected number, received string"],
+    "bloodType": ["Invalid enum value"]
+  }
+}
+```
+
+## Password Recovery
+
+Forgot your password? MediGuide includes a password recovery flow:
+
+<Steps>
+  <Step title="Request Reset Code">
+    ```http
+    POST /api/users/forgot-password
+    Content-Type: application/json
+    ```
+    
+    ```json
+    {
+      "email": "john@example.com"
+    }
+    ```
+    
+    A 6-digit reset code is generated and stored in the database (valid for 30 minutes).
+  </Step>
+  
+  <Step title="Verify Reset Code">
+    ```http
+    POST /api/users/verify-reset-code
+    Content-Type: application/json
+    ```
+    
+    ```json
+    {
+      "email": "john@example.com",
+      "resetCode": "123456"
+    }
+    ```
+  </Step>
+  
+  <Step title="Reset Password">
+    ```http
+    POST /api/users/reset-password
+    Content-Type: application/json
+    ```
+    
+    ```json
+    {
+      "email": "john@example.com",
+      "resetCode": "123456",
+      "newPassword": "newSecurePassword123"
+    }
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  In development mode, reset codes are logged to the console for testing purposes.
+</Note>
+
+## Frontend Integration
+
+The React frontend uses custom hooks and context for state management:
+
+### Authentication Hook
+
+```jsx utils/useAuth.js
+import { useState, useEffect } from 'react';
+
+export const useAuth = () => {
+  const [user, setUser] = useState(null);
+  
+  const login = (userData) => {
+    setUser(userData);
+    sessionStorage.setItem('user', JSON.stringify(userData));
+  };
+  
+  const logout = () => {
+    setUser(null);
+    sessionStorage.removeItem('user');
+  };
+  
+  useEffect(() => {
+    const storedUser = sessionStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
+  
+  return { user, login, logout };
+};
+```
+
+### Application Structure
+
+```jsx App.jsx
+import { useAuth } from './utils/useAuth';
+
+function App() {
+  const { user, login, logout } = useAuth();
+  
+  if (!user) {
+    return <UserInfo onAuthSuccess={login} />;
+  }
+  
+  return (
+    <div className='Background'>
+      <Header username={user.username} onLogout={logout} />
+      <CTA />
+      <MedCheck userId={user.userId} token={user.token} />
+      <Analize />
+      <HealthPlan userId={user.userId} token={user.token} />
+      <Footer />
+    </div>
+  );
+}
+```
+
+## Health Check Endpoint
+
+Verify the server is running and database is connected:
+
+```bash
+curl http://localhost:3001/api/health
+```
+
+```json
+{
+  "status": "ok",
+  "time": {
+    "now": "2026-03-06T15:30:00.000Z"
+  }
+}
+```
+
+## Common API Errors
+
+### 400 Bad Request
+
+```json
+{
+  "error": "Todos los campos son requeridos"
+}
+```
+
+**Solution**: Ensure all required fields are included in your request.
+
+### 401 Unauthorized
+
+```json
+{
+  "error": "No autorizado: token requerido"
+}
+```
+
+**Solution**: Include a valid JWT token in the `Authorization` header.
+
+### 403 Forbidden
+
+```json
+{
+  "error": "No autorizado para consultar datos de otro usuario"
+}
+```
+
+**Solution**: You can only access your own medical records.
+
+### 404 Not Found
+
+```json
+{
+  "error": "No se encontraron registros médicos"
+}
+```
+
+**Solution**: Add a medical record first before trying to retrieve data.
+
+### 500 Internal Server Error
+
+```json
+{
+  "error": "Error interno del servidor"
+}
+```
+
+**Solution**: Check server logs for detailed error information.
+
+## Next Steps
+
+Now that you've completed the quickstart:
+
+<CardGroup cols={2}>
+  <Card title="Authentication API" icon="key" href="/api/auth/signup">
+    Explore authentication endpoints
+  </Card>
+  
+  <Card title="Mobile Development" icon="mobile" href="/mobile/android-setup">
+    Build MediGuide for Android
+  </Card>
+  
+  <Card title="Database Setup" icon="database" href="/deployment/database">
+    Learn about the database schema
+  </Card>
+  
+  <Card title="Production Deployment" icon="server" href="/deployment/production">
+    Deploy to production
+  </Card>
+</CardGroup>
+
+## Example: Complete User Flow
+
+Here's a complete example using cURL:
+
+```bash
+# 1. Create account
+curl -X POST http://localhost:3001/api/users/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "jane_smith",
+    "email": "jane@example.com",
+    "password": "secure123"
+  }'
+
+# Response: {"token": "eyJ...", "userId": 2, "username": "jane_smith"}
+
+# 2. Save medical record (use token from step 1)
+curl -X POST http://localhost:3001/api/medical-info \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJ..." \
+  -d '{
+    "userId": 2,
+    "glucose": 88,
+    "oxygenBlood": 99,
+    "bloodPressureSystolic": 118,
+    "bloodPressureDiastolic": 78,
+    "temperature": 36.5,
+    "age": 32,
+    "height": 1.68,
+    "weight": 65,
+    "respiratoryRate": 14,
+    "bloodType": "A+",
+    "heartRate": 68
+  }'
+
+# 3. Retrieve latest record
+curl -X GET "http://localhost:3001/api/medical-info/latest?userId=2" \
+  -H "Authorization: Bearer eyJ..."
+```
+
+<Note>
+  Replace `eyJ...` with your actual JWT token received from the signup/login response.
+</Note>
+
+## Congratulations!
+
+You've successfully set up MediGuide and learned the complete workflow from account creation to health tracking. You're now ready to build and extend MediGuide for your specific needs.

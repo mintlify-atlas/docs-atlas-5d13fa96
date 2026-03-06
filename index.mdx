@@ -1,97 +1,100 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Welcome to MediGuide"
+description: "Your comprehensive health tracking companion for monitoring medical vitals and managing personal health data"
 ---
 
-## Setting up
+<div className="hero-section" style={{background: 'linear-gradient(135deg, #f1d262 0%, #7c6c34 100%)', padding: '48px 32px', borderRadius: '20px', marginBottom: '32px'}}>
+  <h1 style={{color: '#19160b', fontSize: '48px', fontWeight: '700', marginBottom: '16px'}}>Track Your Health Journey</h1>
+  <p style={{color: '#2e2e2e', fontSize: '20px', marginBottom: '32px'}}>Monitor vital signs, manage medical records, and take control of your health with MediGuide's comprehensive tracking platform.</p>
+</div>
 
-Get your documentation site up and running in minutes.
+## Get Started
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+Begin your health tracking journey in minutes.
 
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
+    title="Quick Start"
+    icon="rocket"
+    href="/quickstart"
   >
-    Edit your docs locally and preview them in real time.
+    Set up MediGuide and start tracking your health data
   </Card>
   <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
+    title="Installation Guide"
+    icon="download"
+    href="/installation"
   >
-    Customize the design and colors of your site to match your brand.
+    Deploy MediGuide on your server or local environment
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
+</CardGroup>
+
+## Core Features
+
+Powerful tools for comprehensive health management.
+
+<CardGroup cols={3}>
+  <Card
+    title="User Authentication"
+    icon="shield-halved"
+    href="/features/authentication"
   >
-    Organize your docs to help users find what they need and succeed with your product.
+    Secure JWT-based authentication with password recovery
   </Card>
   <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
+    title="Medical Tracking"
+    icon="heart-pulse"
+    href="/features/medical-tracking"
   >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+    Track glucose, blood pressure, heart rate, and more
   </Card>
   <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
+    title="Health Dashboard"
+    icon="chart-line"
+    href="/features/health-dashboard"
   >
-    Add sample code to demonstrate how to use your product.
+    Visualize your health data with interactive charts
+  </Card>
+</CardGroup>
+
+## Mobile & Deployment
+
+Take MediGuide anywhere with cross-platform support.
+
+<CardGroup cols={2}>
+  <Card
+    title="Android App Setup"
+    icon="mobile"
+    href="/mobile/android-setup"
+  >
+    Build and deploy the MediGuide Android app
   </Card>
   <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
+    title="Production Deployment"
+    icon="server"
+    href="/deployment/production"
   >
-    Display images and other media.
+    Deploy MediGuide to production with best practices
+  </Card>
+</CardGroup>
+
+## API Reference
+
+Integrate with MediGuide's powerful RESTful API.
+
+<CardGroup cols={2}>
+  <Card
+    title="Authentication API"
+    icon="key"
+    href="/api/auth/signup"
+  >
+    User registration, login, and password recovery endpoints
   </Card>
   <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
+    title="Medical Records API"
+    icon="file-medical"
+    href="/api/medical/save-record"
   >
-    Write once and reuse across your docs.
+    Save and retrieve medical data programmatically
   </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+</CardGroup>

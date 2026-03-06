@@ -1,0 +1,450 @@
+---
+title: 'Capacitor Configuration'
+description: 'Configure Capacitor settings for the MediGuide mobile app'
+icon: 'gear'
+---
+
+## Overview
+
+Capacitor configuration is managed through the `capacitor.config.json` file at the root of your project. This file defines how Capacitor bridges your web application with native platform functionality.
+
+## Current Configuration
+
+MediGuide's Capacitor configuration:
+
+```json capacitor.config.json
+{
+  "appId": "com.mediguide.app",
+  "appName": "MediGuide",
+  "webDir": "dist"
+}
+```
+
+<Note>
+This minimal configuration is sufficient for basic Capacitor functionality. Additional options can be added as needed.
+</Note>
+
+## Configuration Properties
+
+### App Identity
+
+<ParamField path="appId" type="string" required>
+  The unique identifier for your application across platforms.
+  
+  ```json
+  "appId": "com.mediguide.app"
+  ```
+  
+  <Warning>
+  Changing the `appId` after publishing will create a new app listing on app stores. This should only be changed before initial release.
+  </Warning>
+</ParamField>
+
+<ParamField path="appName" type="string" required>
+  The display name of your application.
+  
+  ```json
+  "appName": "MediGuide"
+  ```
+  
+  This name appears:
+  - On the device home screen
+  - In app store listings (can be overridden)
+  - In the app switcher
+</ParamField>
+
+### Web Directory
+
+<ParamField path="webDir" type="string" required>
+  The directory containing your built web assets.
+  
+  ```json
+  "webDir": "dist"
+  ```
+  
+  For MediGuide, this points to the output directory of the Vite build process (configured in `package.json`):
+  
+  ```json package.json
+  {
+    "scripts": {
+      "build": "vite build"
+    }
+  }
+  ```
+</ParamField>
+
+## Advanced Configuration Options
+
+### Server Configuration
+
+Configure development server settings for live reload:
+
+```json
+{
+  "appId": "com.mediguide.app",
+  "appName": "MediGuide",
+  "webDir": "dist",
+  "server": {
+    "url": "http://192.168.1.100:5173",
+    "cleartext": true,
+    "androidScheme": "http"
+  }
+}
+```
+
+<ParamField path="server.url" type="string">
+  The URL of your development server. Use your computer's IP address, not `localhost`.
+</ParamField>
+
+<ParamField path="server.cleartext" type="boolean">
+  Allow HTTP traffic (required for local development on Android 9+).
+</ParamField>
+
+<ParamField path="server.androidScheme" type="string">
+  The URL scheme for Android. Use `"https"` for production, `"http"` for development.
+</ParamField>
+
+<Warning>
+Remove the `server` configuration before building production releases. Live reload configuration should only be used during development.
+</Warning>
+
+### Android-Specific Configuration
+
+Add Android-specific settings:
+
+```json
+{
+  "appId": "com.mediguide.app",
+  "appName": "MediGuide",
+  "webDir": "dist",
+  "android": {
+    "buildOptions": {
+      "keystorePath": "/path/to/keystore.jks",
+      "keystorePassword": "password",
+      "keystoreAlias": "alias",
+      "keystoreAliasPassword": "password",
+      "releaseType": "APK"
+    },
+    "backgroundColor": "#ffffff",
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  }
+}
+```
+
+<ParamField path="android.buildOptions" type="object">
+  Configuration for Android build signing and release type.
+  
+  <Note>
+  Store keystore credentials in environment variables or secure vaults, not in the config file.
+  </Note>
+</ParamField>
+
+<ParamField path="android.backgroundColor" type="string">
+  The background color to display while the web content is loading.
+</ParamField>
+
+<ParamField path="android.webContentsDebuggingEnabled" type="boolean">
+  Enable Chrome DevTools debugging. Set to `true` for development, `false` for production.
+</ParamField>
+
+### iOS-Specific Configuration
+
+```json
+{
+  "appId": "com.mediguide.app",
+  "appName": "MediGuide",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "automatic",
+    "scrollEnabled": true,
+    "backgroundColor": "#ffffff",
+    "allowsLinkPreview": true,
+    "scheme": "MediGuide"
+  }
+}
+```
+
+<ParamField path="ios.contentInset" type="string">
+  How to handle safe area insets. Options: `"automatic"`, `"never"`.
+</ParamField>
+
+<ParamField path="ios.scrollEnabled" type="boolean">
+  Enable or disable scrolling in the web view.
+</ParamField>
+
+<ParamField path="ios.scheme" type="string">
+  Custom URL scheme for the app.
+</ParamField>
+
+### Plugin Configuration
+
+Configure Capacitor plugins globally:
+
+```json
+{
+  "appId": "com.mediguide.app",
+  "appName": "MediGuide",
+  "webDir": "dist",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#1E40AF",
+      "showSpinner": false,
+      "androidSpinnerStyle": "large",
+      "spinnerColor": "#ffffff"
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon_config_sample",
+      "iconColor": "#488AFF"
+    }
+  }
+}
+```
+
+<Note>
+Plugin configurations can also be set at runtime using plugin-specific methods in your application code.
+</Note>
+
+## Configuration File Formats
+
+Capacitor supports multiple configuration file formats:
+
+<CodeGroup>
+```json capacitor.config.json
+{
+  "appId": "com.mediguide.app",
+  "appName": "MediGuide",
+  "webDir": "dist"
+}
+```
+
+```typescript capacitor.config.ts
+import { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.mediguide.app',
+  appName: 'MediGuide',
+  webDir: 'dist',
+};
+
+export default config;
+```
+
+```javascript capacitor.config.js
+module.exports = {
+  appId: 'com.mediguide.app',
+  appName: 'MediGuide',
+  webDir: 'dist',
+};
+```
+</CodeGroup>
+
+<Note>
+MediGuide currently uses `capacitor.config.json`. TypeScript configuration (`.ts`) provides better type safety and IDE support.
+</Note>
+
+## Best Practices
+
+### Security
+
+<Steps>
+  <Step title="Never Commit Secrets">
+    Don't store sensitive information like keystore passwords in the config file.
+    
+    Use environment variables instead:
+    ```typescript capacitor.config.ts
+    const config: CapacitorConfig = {
+      android: {
+        buildOptions: {
+          keystorePassword: process.env.KEYSTORE_PASSWORD,
+        },
+      },
+    };
+    ```
+  </Step>
+
+  <Step title="Disable Debugging in Production">
+    Ensure debugging features are disabled for release builds:
+    ```json
+    {
+      "android": {
+        "webContentsDebuggingEnabled": false
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Use HTTPS in Production">
+    Only use HTTP and cleartext settings during development:
+    ```json
+    {
+      "server": {
+        "androidScheme": "https"
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+### Development Workflow
+
+<Steps>
+  <Step title="Separate Dev and Prod Configs">
+    Consider using environment-specific configurations:
+    - `capacitor.config.json` for production
+    - `capacitor.config.dev.json` for development
+    
+    Use the `--config` flag to specify:
+    ```bash
+    npx cap sync --config capacitor.config.dev.json
+    ```
+  </Step>
+
+  <Step title="Sync After Configuration Changes">
+    Always sync after modifying the config:
+    ```bash
+    npx cap sync
+    ```
+  </Step>
+
+  <Step title="Version Control">
+    Add sensitive config files to `.gitignore`:
+    ```gitignore
+    capacitor.config.dev.json
+    capacitor.config.local.json
+    ```
+  </Step>
+</Steps>
+
+## Syncing Configuration
+
+After making changes to `capacitor.config.json`, sync the configuration to native projects:
+
+<CodeGroup>
+```bash All Platforms
+npx cap sync
+```
+
+```bash Android Only
+npx cap sync android
+```
+
+```bash iOS Only
+npx cap sync ios
+```
+</CodeGroup>
+
+The sync command:
+1. Copies web assets to native projects
+2. Updates native configuration based on `capacitor.config.json`
+3. Installs and updates Capacitor plugins
+4. Generates native project files if needed
+
+## Integration with Build Process
+
+The configuration ties into MediGuide's build workflow:
+
+```json package.json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  }
+}
+```
+
+Typical development workflow:
+
+<Steps>
+  <Step title="Build Web Assets">
+    ```bash
+    npm run build
+    ```
+    Outputs to the `dist` directory (as configured in `webDir`)
+  </Step>
+
+  <Step title="Sync to Native">
+    ```bash
+    npx cap sync
+    ```
+    Copies `dist` contents to Android and iOS projects
+  </Step>
+
+  <Step title="Run or Build">
+    ```bash
+    npx cap run android
+    ```
+    Launches the app with updated configuration
+  </Step>
+</Steps>
+
+## Environment Variables
+
+You can use environment variables in TypeScript config files:
+
+```typescript capacitor.config.ts
+import { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: process.env.APP_ID || 'com.mediguide.app',
+  appName: process.env.APP_NAME || 'MediGuide',
+  webDir: 'dist',
+  server: {
+    url: process.env.DEV_SERVER_URL,
+    cleartext: process.env.NODE_ENV === 'development',
+  },
+};
+
+export default config;
+```
+
+## Troubleshooting
+
+### Configuration Not Applied
+
+If changes aren't taking effect:
+
+```bash
+npx cap sync
+npx cap copy
+```
+
+Or clean and rebuild:
+
+```bash
+cd android
+./gradlew clean
+cd ..
+npx cap sync android
+```
+
+### Invalid Configuration
+
+Validate your configuration:
+
+```bash
+npx cap doctor
+```
+
+This checks for common configuration issues.
+
+### Build Errors After Config Changes
+
+If you encounter build errors:
+
+1. Verify `webDir` points to the correct output directory
+2. Ensure the web assets have been built (`npm run build`)
+3. Check that `appId` follows reverse-domain naming (e.g., `com.company.app`)
+4. Sync the configuration: `npx cap sync`
+
+## Next Steps
+
+- [Android Setup Guide](/mobile/android-setup)
+- [Authentication API](/api/auth/signup)
+- [Deployment Guide](/deployment/production)

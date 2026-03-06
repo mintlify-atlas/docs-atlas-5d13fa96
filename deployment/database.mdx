@@ -1,0 +1,457 @@
+---
+title: Database Setup
+description: Configure PostgreSQL and initialize the MediGuide database schema
+---
+
+## Overview
+
+MediGuide uses PostgreSQL to store user accounts and medical records. This guide covers database installation, configuration, and schema initialization.
+
+## Prerequisites
+
+<Note>
+  Ensure you have PostgreSQL 12 or higher installed on your system.
+</Note>
+
+### Installing PostgreSQL
+
+<CodeGroup>
+```bash macOS
+brew install postgresql@15
+brew services start postgresql@15
+```
+
+```bash Ubuntu/Debian
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
+
+```bash RHEL/CentOS
+sudo dnf install postgresql-server
+sudo postgresql-setup --initdb
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
+
+```bash Windows
+# Download from https://www.postgresql.org/download/windows/
+# Run the installer and follow the wizard
+```
+</CodeGroup>
+
+## Database Creation
+
+<Steps>
+  <Step title="Connect to PostgreSQL">
+    Access the PostgreSQL shell:
+
+    ```bash
+    psql -U postgres
+    ```
+  </Step>
+
+  <Step title="Create database">
+    Create the MediGuide database:
+
+    ```sql
+    CREATE DATABASE mediguide;
+    ```
+  </Step>
+
+  <Step title="Create user (optional)">
+    For production, create a dedicated database user:
+
+    ```sql
+    CREATE USER mediguide_user WITH PASSWORD 'your_secure_password';
+    GRANT ALL PRIVILEGES ON DATABASE mediguide TO mediguide_user;
+    ```
+  </Step>
+
+  <Step title="Exit PostgreSQL shell">
+    ```sql
+    \q
+    ```
+  </Step>
+</Steps>
+
+## Database Schema
+
+MediGuide automatically initializes the database schema on startup using `initDb.js`. The schema includes two main tables:
+
+### Users Table
+
+Stores user authentication and account information:
+
+```sql
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(255) UNIQUE NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  reset_code VARCHAR(10),
+  reset_code_expiry TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Column Details:**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | SERIAL | Auto-incrementing primary key |
+| `username` | VARCHAR(255) | Unique username for login |
+| `email` | VARCHAR(255) | Unique email address |
+| `password` | VARCHAR(255) | Bcrypt-hashed password (10 salt rounds) |
+| `reset_code` | VARCHAR(10) | Temporary 6-digit password reset code |
+| `reset_code_expiry` | TIMESTAMP | Expiration time for reset code (30 minutes) |
+| `created_at` | TIMESTAMP | Account creation timestamp |
+
+### Medical Records Table
+
+Stores health tracking data for users:
+
+```sql
+CREATE TABLE IF NOT EXISTS medical_records (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  glucose NUMERIC,
+  oxygen_blood NUMERIC,
+  blood_pressure_systolic NUMERIC,
+  blood_pressure_diastolic NUMERIC,
+  temperature NUMERIC,
+  age INTEGER,
+  height NUMERIC,
+  weight NUMERIC,
+  respiratory_rate NUMERIC,
+  blood_type VARCHAR(2),
+  heart_rate NUMERIC,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Column Details:**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | SERIAL | Auto-incrementing primary key |
+| `user_id` | INTEGER | Foreign key to users table |
+| `glucose` | NUMERIC | Blood glucose level (mg/dL) |
+| `oxygen_blood` | NUMERIC | Blood oxygen saturation (%) |
+| `blood_pressure_systolic` | NUMERIC | Systolic blood pressure (mmHg) |
+| `blood_pressure_diastolic` | NUMERIC | Diastolic blood pressure (mmHg) |
+| `temperature` | NUMERIC | Body temperature (°F or °C) |
+| `age` | INTEGER | User's age |
+| `height` | NUMERIC | Height (cm or inches) |
+| `weight` | NUMERIC | Weight (kg or lbs) |
+| `respiratory_rate` | NUMERIC | Breaths per minute |
+| `blood_type` | VARCHAR(2) | Blood type (A, B, AB, O with +/-) |
+| `heart_rate` | NUMERIC | Heart rate (bpm) |
+| `created_at` | TIMESTAMP | Record creation timestamp |
+
+<Note>
+  The `ON DELETE CASCADE` constraint ensures that when a user is deleted, all their medical records are automatically removed.
+</Note>
+
+## Automatic Schema Initialization
+
+MediGuide automatically creates the database tables when the server starts:
+
+```javascript initDb.js
+import pool from './db.js';
+
+async function initializeDatabase() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(255) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        reset_code VARCHAR(10),
+        reset_code_expiry TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS medical_records (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        glucose NUMERIC,
+        oxygen_blood NUMERIC,
+        blood_pressure_systolic NUMERIC,
+        blood_pressure_diastolic NUMERIC,
+        temperature NUMERIC,
+        age INTEGER,
+        height NUMERIC,
+        weight NUMERIC,
+        respiratory_rate NUMERIC,
+        blood_type VARCHAR(2),
+        heart_rate NUMERIC,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+    console.log('✓ Database initialized successfully');
+  } catch (error) {
+    console.error('✗ Error initializing database:', error.message);
+    process.exit(1);
+  }
+}
+
+export default initializeDatabase;
+```
+
+The initialization is called in `server.js:18` before starting the server:
+
+```javascript server.js
+import initializeDatabase from './initDb.js';
+
+await initializeDatabase();
+
+app.use('/api/users', usersRouter);
+app.use('/api/medical-info', medicalRouter);
+```
+
+## Manual Schema Initialization
+
+If you need to run the database initialization manually:
+
+<Steps>
+  <Step title="Create initialization script">
+    Create a file `scripts/init-db.js`:
+
+    ```javascript scripts/init-db.js
+    import initializeDatabase from '../initDb.js';
+
+    initializeDatabase()
+      .then(() => {
+        console.log('Database initialization complete');
+        process.exit(0);
+      })
+      .catch((error) => {
+        console.error('Failed to initialize database:', error);
+        process.exit(1);
+      });
+    ```
+  </Step>
+
+  <Step title="Run the script">
+    ```bash
+    node scripts/init-db.js
+    ```
+  </Step>
+</Steps>
+
+## Database Configuration
+
+The database connection is configured in `db.js` using environment variables:
+
+```javascript db.js
+import pg from 'pg';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const { Pool } = pg;
+
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+});
+
+export default pool;
+```
+
+### Connection Pool Benefits
+
+- **Performance**: Reuses connections instead of creating new ones
+- **Resource Management**: Limits concurrent database connections
+- **Automatic Reconnection**: Handles connection failures gracefully
+
+### Pool Configuration Options
+
+For production environments, you may want to configure additional pool settings:
+
+```javascript db.js
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+  max: 20,                    // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000,   // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 2000, // Return error after 2 seconds if no connection available
+});
+```
+
+## Verifying Database Setup
+
+After initialization, verify the tables were created:
+
+```bash
+psql -U postgres -d mediguide -c "\dt"
+```
+
+Expected output:
+```
+             List of relations
+ Schema |      Name       | Type  |  Owner   
+--------+-----------------+-------+----------
+ public | medical_records | table | postgres
+ public | users           | table | postgres
+```
+
+### Check Table Structure
+
+View the users table structure:
+
+```bash
+psql -U postgres -d mediguide -c "\d users"
+```
+
+View the medical_records table structure:
+
+```bash
+psql -U postgres -d mediguide -c "\d medical_records"
+```
+
+## Database Migrations
+
+<Warning>
+  Currently, MediGuide uses a simple initialization script. For production applications with evolving schemas, consider implementing a migration system.
+</Warning>
+
+### Recommended Migration Tools
+
+- **node-pg-migrate**: Programmatic PostgreSQL migrations
+- **Knex.js**: SQL query builder with migration support
+- **Sequelize**: ORM with built-in migrations
+- **Prisma**: Modern ORM with declarative schema and migrations
+
+## Database Backups
+
+### Creating Backups
+
+Backup the entire database:
+
+```bash
+pg_dump -U postgres mediguide > mediguide_backup_$(date +%Y%m%d_%H%M%S).sql
+```
+
+Backup specific tables:
+
+```bash
+pg_dump -U postgres -t users -t medical_records mediguide > mediguide_tables_backup.sql
+```
+
+### Restoring Backups
+
+```bash
+psql -U postgres mediguide < mediguide_backup_20240315_120000.sql
+```
+
+### Automated Backup Schedule
+
+Create a cron job for daily backups:
+
+```bash crontab
+# Daily backup at 2 AM
+0 2 * * * pg_dump -U postgres mediguide > /backups/mediguide_$(date +\%Y\%m\%d).sql
+```
+
+## Database Monitoring
+
+### Health Check Endpoint
+
+MediGuide includes a health check endpoint to verify database connectivity:
+
+```javascript server.js
+app.get('/api/health', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT NOW()');
+    return res.json({ status: 'ok', time: rows[0] });
+  } catch (error) {
+    return res.status(500).json({ status: 'error', error: error.message });
+  }
+});
+```
+
+Test the health endpoint:
+
+```bash
+curl http://localhost:3001/api/health
+```
+
+### Common Database Queries
+
+Check active connections:
+
+```sql
+SELECT count(*) FROM pg_stat_activity WHERE datname = 'mediguide';
+```
+
+View recent medical records:
+
+```sql
+SELECT * FROM medical_records ORDER BY created_at DESC LIMIT 10;
+```
+
+Count users by registration date:
+
+```sql
+SELECT DATE(created_at) as date, COUNT(*) as users
+FROM users
+GROUP BY DATE(created_at)
+ORDER BY date DESC;
+```
+
+## Troubleshooting
+
+### Connection Refused
+
+**Error**: `ECONNREFUSED 127.0.0.1:5432`
+
+**Solutions**:
+- Ensure PostgreSQL is running: `sudo systemctl status postgresql`
+- Check PostgreSQL port: `sudo netstat -plunt | grep postgres`
+- Verify `DB_HOST` and `DB_PORT` in `.env`
+
+### Authentication Failed
+
+**Error**: `password authentication failed for user`
+
+**Solutions**:
+- Verify `DB_USER` and `DB_PASSWORD` in `.env`
+- Check `pg_hba.conf` authentication settings
+- Ensure user has database access privileges
+
+### Database Does Not Exist
+
+**Error**: `database "mediguide" does not exist`
+
+**Solution**:
+```bash
+createdb -U postgres mediguide
+```
+
+### Permission Denied
+
+**Error**: `permission denied for table users`
+
+**Solution**:
+```sql
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO mediguide_user;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO mediguide_user;
+```
+
+## Next Steps
+
+<Card title="Production Deployment" icon="rocket" href="/deployment/production">
+  Learn how to deploy MediGuide to production with best practices
+</Card>

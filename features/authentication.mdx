@@ -1,0 +1,652 @@
+---
+title: Authentication System
+description: Secure user authentication with JWT tokens, password recovery, and bcrypt hashing
+icon: lock
+---
+
+MediGuide implements a comprehensive authentication system with JWT tokens, secure password hashing, and a complete password recovery workflow.
+
+## Overview
+
+The authentication system provides:
+- User registration with duplicate checks
+- Secure login with JWT token generation
+- Password recovery via email verification codes
+- bcrypt password hashing with 10 salt rounds
+- 7-day token expiration
+- Protected routes with authorization middleware
+
+## User Registration
+
+### Registration Flow
+
+<Steps>
+  <Step title="Validate Input">
+    The system checks that username, email, and password are provided and validates email format.
+  </Step>
+  
+  <Step title="Check for Duplicates">
+    Queries the database to ensure the username and email aren't already registered.
+  </Step>
+  
+  <Step title="Hash Password">
+    Uses bcrypt with 10 salt rounds to securely hash the password.
+  </Step>
+  
+  <Step title="Create User Record">
+    Inserts the new user into PostgreSQL and returns the user ID.
+  </Step>
+  
+  <Step title="Generate JWT Token">
+    Creates a JWT token with 7-day expiration containing the user ID and username.
+  </Step>
+</Steps>
+
+### API Endpoint
+
+```javascript
+POST /api/users/signup
+Content-Type: application/json
+
+{
+  "username": "john_doe",
+  "email": "john@example.com",
+  "password": "SecurePass123!"
+}
+```
+
+### Backend Implementation
+
+From `src/routes/users.js:11-47`:
+
+```javascript
+router.post('/signup', async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Todos los campos son requeridos' });
+    }
+
+    // Check for existing username or email
+    const { rows } = await pool.query(
+      `SELECT username, email FROM users WHERE username = $1 OR email = $2`,
+      [username, email]
+    );
+
+    if (rows.length > 0) {
+      const campo = rows[0].username === username ? 'Usuario' : 'Correo';
+      return res.status(400).json({ error: `${campo} ya está registrado` });
+    }
+
+    // Hash password with bcrypt
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+    const { rows: inserted } = await pool.query(
+      `INSERT INTO users (username, email, password, created_at)
+       VALUES ($1, $2, $3, NOW())
+       RETURNING id, username`,
+      [username, email, hashedPassword]
+    );
+
+    const user = inserted[0];
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return res.status(201).json({
+      message: 'Usuario registrado exitosamente',
+      token,
+      userId: user.id,
+      username: user.username
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+```
+
+### Frontend Registration Form
+
+From `src/pages/userinfo.jsx:53-84`:
+
+```jsx
+const response = await fetch(`${API_URL}/api/users/signup`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    username: formData.username,
+    email: formData.email,
+    password: formData.password
+  })
+});
+
+const data = await response.json();
+
+if (response.ok) {
+  setMessage('¡Cuenta creada exitosamente! Iniciando sesión...');
+  setTimeout(() => onAuthSuccess(data), 1000);
+}
+```
+
+<Note>
+  Passwords are hashed using bcrypt with 10 salt rounds before storage. The plain text password is never stored in the database.
+</Note>
+
+## User Login
+
+### Login Process
+
+<Steps>
+  <Step title="Submit Credentials">
+    User provides username and password.
+  </Step>
+  
+  <Step title="Retrieve User">
+    Query database for user record by username.
+  </Step>
+  
+  <Step title="Verify Password">
+    Use bcrypt.compare() to validate the password against the stored hash.
+  </Step>
+  
+  <Step title="Generate Token">
+    Create a JWT token valid for 7 days.
+  </Step>
+  
+  <Step title="Return Authentication Data">
+    Send token, user ID, and username to the client.
+  </Step>
+</Steps>
+
+### API Endpoint
+
+```javascript
+POST /api/users/login
+Content-Type: application/json
+
+{
+  "username": "john_doe",
+  "password": "SecurePass123!"
+}
+```
+
+### Response Format
+
+```json
+{
+  "message": "Inicio de sesión exitoso",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "userId": 42,
+  "username": "john_doe"
+}
+```
+
+### Backend Implementation
+
+From `src/routes/users.js:51-83`:
+
+```javascript
+router.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT id, username, password FROM users WHERE username = $1`,
+      [username]
+    );
+
+    if (rows.length === 0) {
+      return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+    }
+
+    const user = rows[0];
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return res.json({
+      message: 'Inicio de sesión exitoso',
+      token,
+      userId: user.id,
+      username: user.username
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+```
+
+<Warning>
+  The same error message is returned for both invalid username and invalid password to prevent user enumeration attacks.
+</Warning>
+
+## JWT Token Authentication
+
+### Token Structure
+
+JWT tokens contain:
+- **Payload**: User ID and username
+- **Expiration**: 7 days from creation
+- **Signature**: Signed with `JWT_SECRET` environment variable
+
+### Authorization Middleware
+
+From `src/middleware/auth.js:3-16`:
+
+```javascript
+const auth = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'No autorizado: token requerido' });
+  }
+
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Token inválido o expirado' });
+  }
+};
+```
+
+### Using Authenticated Endpoints
+
+All medical data routes require authentication:
+
+```javascript
+import auth from '../middleware/auth.js';
+
+const router = Router();
+
+// All medical routes require authentication
+router.use(auth);
+
+router.post('/', async (req, res) => {
+  // req.user contains the decoded JWT payload
+  if (req.user.id !== userId) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+  // ... save medical data
+});
+```
+
+### Making Authenticated Requests
+
+From `src/components/medinfo.jsx:28-35`:
+
+```jsx
+const response = await fetch(`${API_URL}/api/medical-info`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({ ...formData, userId })
+});
+```
+
+## Password Recovery System
+
+MediGuide implements a secure 3-step password recovery process:
+
+### Step 1: Request Recovery Code
+
+<Tabs>
+  <Tab title="API Endpoint">
+    ```javascript
+    POST /api/users/forgot-password
+    Content-Type: application/json
+
+    {
+      "email": "john@example.com"
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Backend Logic">
+    From `src/routes/users.js:87-121`:
+    
+    ```javascript
+    router.post('/forgot-password', async (req, res) => {
+      try {
+        const { email } = req.body;
+
+        if (!email) {
+          return res.status(400).json({ error: 'Correo requerido' });
+        }
+
+        const { rows } = await pool.query(
+          `SELECT id FROM users WHERE email = $1`,
+          [email]
+        );
+
+        if (rows.length === 0) {
+          return res.json({ message: 'Si el correo existe, recibirás un código de recuperación' });
+        }
+
+        // Generate 6-digit code
+        const resetCode = Math.random().toString().substring(2, 8);
+        const expiry = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+        await pool.query(
+          `UPDATE users SET reset_code = $1, reset_code_expiry = $2 WHERE id = $3`,
+          [resetCode, expiry, rows[0].id]
+        );
+
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[dev] Código de recuperación para ${email}: ${resetCode}`);
+        }
+
+        return res.json({ message: 'Si el correo existe, recibirás un código de recuperación' });
+      } catch (error) {
+        return res.status(500).json({ error: 'Error interno del servidor' });
+      }
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Frontend">
+    From `src/pages/resetpassword.jsx:29-63`:
+    
+    ```jsx
+    const handleEmailSubmit = async (e) => {
+      e.preventDefault();
+      setLoading(true);
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setMessage('Por favor ingresa un correo electrónico válido');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/users/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+
+        const data = await response.json();
+
+        setMessage('Se ha enviado un código de recuperación a tu correo.');
+        setStep(2);
+      } catch (error) {
+        setMessage(`Error de conexión: ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    ```
+  </Tab>
+</Tabs>
+
+### Step 2: Verify Recovery Code
+
+<Tabs>
+  <Tab title="API Endpoint">
+    ```javascript
+    POST /api/users/verify-reset-code
+    Content-Type: application/json
+
+    {
+      "email": "john@example.com",
+      "resetCode": "123456"
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Backend Logic">
+    From `src/routes/users.js:125-152`:
+    
+    ```javascript
+    router.post('/verify-reset-code', async (req, res) => {
+      try {
+        const { email, resetCode } = req.body;
+
+        if (!email || !resetCode) {
+          return res.status(400).json({ error: 'Correo y código requeridos' });
+        }
+
+        const { rows } = await pool.query(
+          `SELECT id, reset_code_expiry FROM users WHERE email = $1 AND reset_code = $2`,
+          [email, resetCode]
+        );
+
+        if (rows.length === 0) {
+          return res.status(401).json({ error: 'Código de recuperación inválido' });
+        }
+
+        if (new Date(rows[0].reset_code_expiry) < new Date()) {
+          return res.status(401).json({ error: 'El código de recuperación ha expirado' });
+        }
+
+        return res.json({ message: 'Código verificado exitosamente', userId: rows[0].id });
+      } catch (error) {
+        return res.status(500).json({ error: 'Error interno del servidor' });
+      }
+    });
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  Recovery codes expire after 30 minutes for security. Users must request a new code if their code expires.
+</Note>
+
+### Step 3: Reset Password
+
+<Tabs>
+  <Tab title="API Endpoint">
+    ```javascript
+    POST /api/users/reset-password
+    Content-Type: application/json
+
+    {
+      "email": "john@example.com",
+      "resetCode": "123456",
+      "newPassword": "NewSecurePass123!"
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Backend Logic">
+    From `src/routes/users.js:156-193`:
+    
+    ```javascript
+    router.post('/reset-password', async (req, res) => {
+      try {
+        const { email, resetCode, newPassword } = req.body;
+
+        if (!newPassword || newPassword.length < 6) {
+          return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+        }
+
+        const { rows } = await pool.query(
+          `SELECT id, reset_code_expiry FROM users WHERE email = $1 AND reset_code = $2`,
+          [email, resetCode]
+        );
+
+        if (rows.length === 0) {
+          return res.status(401).json({ error: 'Código de recuperación inválido' });
+        }
+
+        if (new Date(rows[0].reset_code_expiry) < new Date()) {
+          return res.status(401).json({ error: 'El código de recuperación ha expirado' });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+        const { rows: updated } = await pool.query(
+          `UPDATE users
+           SET password = $1, reset_code = NULL, reset_code_expiry = NULL
+           WHERE email = $2
+           RETURNING id, username`,
+          [hashedPassword, email]
+        );
+
+        return res.json({
+          message: 'Contraseña actualizada exitosamente',
+          userId: updated[0].id,
+          username: updated[0].username
+        });
+      } catch (error) {
+        return res.status(500).json({ error: 'Error interno del servidor' });
+      }
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Frontend">
+    From `src/pages/resetpassword.jsx:102-146`:
+    
+    ```jsx
+    const handlePasswordSubmit = async (e) => {
+      e.preventDefault();
+      setLoading(true);
+
+      if (newPassword !== confirmPassword) {
+        setMessage('Las contraseñas no coinciden');
+        return;
+      }
+      if (newPassword.length < 6) {
+        setMessage('La contraseña debe tener al menos 6 caracteres');
+        return;
+      }
+      const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword);
+      if (!hasSpecialChar) {
+        setMessage('La contraseña debe contener al menos un carácter especial');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/users/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, resetCode, newPassword })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setMessage('¡Contraseña actualizada exitosamente! Redirigiendo...');
+          setTimeout(() => onBack(), 2000);
+        }
+      } catch (error) {
+        setMessage(`Error de conexión: ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    ```
+  </Tab>
+</Tabs>
+
+## Security Features
+
+<Accordion title="Password Hashing">
+  MediGuide uses bcrypt with 10 salt rounds to hash passwords before storage. This protects against:
+  - Rainbow table attacks
+  - Database breaches exposing plain text passwords
+  - Brute force attacks (bcrypt is intentionally slow)
+  
+  ```javascript
+  const SALT_ROUNDS = 10;
+  const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+  ```
+</Accordion>
+
+<Accordion title="JWT Token Expiration">
+  Tokens expire after 7 days, requiring users to re-authenticate periodically:
+  
+  ```javascript
+  const token = jwt.sign(
+    { id: user.id, username: user.username },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+  ```
+</Accordion>
+
+<Accordion title="Recovery Code Expiration">
+  Password recovery codes expire after 30 minutes:
+  
+  ```javascript
+  const expiry = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+  ```
+</Accordion>
+
+<Accordion title="User Enumeration Prevention">
+  The same generic message is returned whether a user exists or not:
+  
+  ```javascript
+  return res.json({ message: 'Si el correo existe, recibirás un código de recuperación' });
+  ```
+</Accordion>
+
+<Accordion title="Authorization Checks">
+  Users can only access their own data:
+  
+  ```javascript
+  if (req.user.id !== userId) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+  ```
+</Accordion>
+
+## Database Schema
+
+From `initDb.js:6-14`:
+
+```sql
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(255) UNIQUE NOT NULL,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  reset_code VARCHAR(10),
+  reset_code_expiry TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+## Environment Configuration
+
+```bash
+# Required environment variables
+JWT_SECRET=your-secret-key-here
+NODE_ENV=production
+```
+
+<Warning>
+  Never commit your JWT_SECRET to version control. Use environment variables and keep secrets secure.
+</Warning>
+
+## Best Practices
+
+1. **Always use HTTPS** in production to prevent token interception
+2. **Store tokens securely** on the client (httpOnly cookies preferred over localStorage)
+3. **Validate input** on both frontend and backend
+4. **Use environment variables** for secrets
+5. **Implement rate limiting** on authentication endpoints to prevent brute force attacks
+6. **Log authentication events** for security monitoring
+
+## Related Documentation
+
+- [Medical Tracking](/features/medical-tracking) - Learn how authenticated users submit health data
+- [Health Dashboard](/features/health-dashboard) - View personalized health information
